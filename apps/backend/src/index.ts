@@ -1,37 +1,18 @@
-import * as functions from "firebase-functions/v2"
+import { onRequest } from "firebase-functions/v2/https"
 import * as admin from "firebase-admin"
-import express from "express"
-import cors from "cors"
 import { Effect, Exit, Cause, Option } from "effect"
 import { registerAllGames } from "@games/game-engine"
-import { Database } from "./db.js"
-import { FirebaseDatabaseLive } from "./db.js"
+import { Database, FirebaseDatabaseLive } from "./db.js"
 import { mapErrorToStatus } from "./utils.js"
-import {
-  createGameHandler,
-  joinGameHandler,
-  deleteGameHandler,
-  getGamesHandler,
-  startGameHandler,
-  sendEventHandler,
-  nextRoundHandler,
-  getGameStateHandler,
-  getLobbyHandler,
-} from "./handlers.js"
+import * as handlers from "./handlers.js"
 
-// Initialize Firebase Admin SDK
 admin.initializeApp()
-
-// Register all game types
 registerAllGames()
 
-// Bridge Effect programs to Express handlers
-const wrapHandler =
-  (handler: (body: unknown) => Effect.Effect<unknown, unknown, Database>) =>
-  async (req: express.Request, res: express.Response): Promise<void> => {
+function wrapHandler(handler: (body: unknown) => Effect.Effect<unknown, unknown, Database>) {
+  return onRequest({ cors: true }, async (req, res) => {
     const program = handler(req.body).pipe(Effect.provide(FirebaseDatabaseLive))
     const exit = await Effect.runPromiseExit(program)
-
     if (Exit.isSuccess(exit)) {
       res.json(exit.value)
     } else {
@@ -40,32 +21,20 @@ const wrapHandler =
         const { status, message } = mapErrorToStatus(failureOpt.value)
         res.status(status).json({ error: message })
       } else {
-        // Defect or interruption
         console.error("Unexpected error:", Cause.pretty(exit.cause))
         res.status(500).json({ error: "Internal server error" })
       }
     }
-  }
+  })
+}
 
-// Express app
-const app = express()
-app.use(cors({ origin: true }))
-app.use(express.json())
-
-// Game service routes
-app.post("/createGame", wrapHandler(createGameHandler))
-app.post("/joinGame", wrapHandler(joinGameHandler))
-app.post("/deleteGame", wrapHandler(deleteGameHandler))
-app.post("/getGames", wrapHandler(getGamesHandler))
-
-// Round service routes
-app.post("/startGame", wrapHandler(startGameHandler))
-app.post("/sendEvent", wrapHandler(sendEventHandler))
-app.post("/nextRound", wrapHandler(nextRoundHandler))
-
-// Polling routes
-app.post("/getGameState", wrapHandler(getGameStateHandler))
-app.post("/getLobby", wrapHandler(getLobbyHandler))
-
-// Export as Firebase Cloud Function v2
-export const api = functions.https.onRequest(app)
+// Export individual Cloud Functions
+export const createGame = wrapHandler(handlers.createGameHandler)
+export const joinGame = wrapHandler(handlers.joinGameHandler)
+export const deleteGame = wrapHandler(handlers.deleteGameHandler)
+export const getGames = wrapHandler(handlers.getGamesHandler)
+export const startGame = wrapHandler(handlers.startGameHandler)
+export const sendEvent = wrapHandler(handlers.sendEventHandler)
+export const nextRound = wrapHandler(handlers.nextRoundHandler)
+export const getGameState = wrapHandler(handlers.getGameStateHandler)
+export const getLobby = wrapHandler(handlers.getLobbyHandler)
