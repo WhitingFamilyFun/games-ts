@@ -41,6 +41,28 @@ button:disabled {
     cursor: not-allowed;
 }
 
+/* Secondary button — outlined / subtle */
+.btn-secondary {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #f4efe4;
+}
+
+.btn-secondary:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.14);
+}
+
+/* Danger / destructive button — red-tinted */
+.btn-danger {
+    background: linear-gradient(135deg, #8b2525, #6b1a1a);
+    border: 1px solid rgba(255, 100, 100, 0.3);
+    color: #ffbaba;
+}
+
+.btn-danger:hover:not(:disabled) {
+    background: linear-gradient(135deg, #a12e2e, #7e2020);
+}
+
 input {
     border: 1px solid rgba(255, 255, 255, 0.15);
     border-radius: 12px;
@@ -81,6 +103,20 @@ input {
 .title-block p {
     color: rgba(244, 239, 228, 0.78);
     max-width: 48rem;
+}
+
+/* Mode pill (mock/firebase indicator) */
+.mode-pill {
+    display: inline-block;
+    border-radius: 999px;
+    padding: 0.3rem 0.7rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: rgba(244, 239, 228, 0.7);
 }
 
 .pane-grid {
@@ -188,6 +224,12 @@ input {
     padding: 0.85rem 1rem;
     background: rgba(159, 42, 43, 0.45);
     border: 1px solid rgba(255, 180, 180, 0.3);
+    animation: fadeIn 200ms ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
 .card-grid {
@@ -375,7 +417,7 @@ input {
     background: rgba(255, 255, 255, 0.2);
 }
 
-/* Carousel panel — swipeable player hands */
+/* Carousel panel -- swipeable player hands */
 .carousel-panel {
     touch-action: pan-y;
     user-select: none;
@@ -404,7 +446,7 @@ input {
     background: rgba(252, 181, 105, 0.85);
 }
 
-/* Flylo card sizing — taller like real cards */
+/* Flylo card sizing -- taller like real cards */
 .flylo-card {
     display: flex;
     align-items: center;
@@ -435,7 +477,7 @@ input {
     min-width: 2rem;
 }
 
-/* Game over banner — more prominent */
+/* Game over banner -- more prominent */
 .round-over-banner.game-over {
     border-color: rgba(252, 100, 100, 0.65);
     background: rgba(159, 42, 43, 0.22);
@@ -453,7 +495,7 @@ input {
 }
 
 .round-score-entry.winner span:first-child::after {
-    content: ' 🏆';
+    content: ' \1F3C6';
 }
 
 /* Setup ready indicator */
@@ -564,6 +606,143 @@ input {
     font-weight: 500;
     display: block;
     margin-top: 0.15rem;
+}
+
+/* Game type cards on home screen */
+.game-cards {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-top: 0.5rem;
+}
+
+.game-card {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-width: 200px;
+    min-height: 50px;
+    padding: 0.7rem 1.2rem;
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    background: linear-gradient(135deg, rgba(207, 109, 53, 0.25), rgba(172, 60, 49, 0.2));
+    cursor: pointer;
+    transition: transform 140ms ease, border-color 200ms ease, background 200ms ease;
+    text-align: left;
+}
+
+.game-card:hover:not(:disabled) {
+    border-color: rgba(252, 181, 105, 0.5);
+    background: linear-gradient(135deg, rgba(207, 109, 53, 0.4), rgba(172, 60, 49, 0.35));
+    transform: translateY(-2px);
+}
+
+.game-card:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.game-card-icon {
+    font-size: 1.6rem;
+    flex-shrink: 0;
+}
+
+.game-card-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+}
+
+.game-card-name {
+    font-size: 1rem;
+    font-weight: 700;
+}
+
+.game-card-desc {
+    font-size: 0.8rem;
+    color: rgba(244, 239, 228, 0.6);
+}
+
+/* Lobby improvements */
+.lobby-header-panel {
+    text-align: center;
+}
+
+.lobby-code-display {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    margin: 0.5rem 0;
+}
+
+.lobby-code-text {
+    font-size: 2.2rem;
+    font-weight: 800;
+    letter-spacing: 0.15em;
+    color: #f4efe4;
+    font-family: "Courier New", monospace;
+}
+
+.lobby-copy-btn {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.85rem;
+}
+
+.lobby-waiting {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+    color: rgba(244, 239, 228, 0.6);
+}
+
+/* Pulsing dot animation */
+.pulse-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: rgba(252, 181, 105, 0.85);
+    animation: pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 0.4; transform: scale(0.8); }
+    50% { opacity: 1; transform: scale(1.2); }
+}
+
+/* Flixx scoreboard improvements */
+.flixx-score-line {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-top: 0.25rem;
+}
+
+.flixx-total-score {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #f4efe4;
+}
+
+.flixx-penalties {
+    display: flex;
+    gap: 0.2rem;
+}
+
+.penalty-x {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.3rem;
+    height: 1.3rem;
+    border-radius: 4px;
+    background: rgba(198, 40, 40, 0.55);
+    color: #ff8a80;
+    font-size: 0.75rem;
+    font-weight: 800;
 }
 
 @media (max-width: 960px) {

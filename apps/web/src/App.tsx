@@ -109,7 +109,7 @@ function flyloHelpText(game: FlyloGame, session: PaneSession, setupDone: boolean
     return `Waiting for ${game.playerIds[game.currentPlayerIndex] ? 'other player' : 'unknown'}...`;
 }
 
-/** Display a card number as its numeric value (e.g. "m2" → "-2", "p5" → "5", "z" → "0") */
+/** Display a card number as its numeric value (e.g. "m2" -> "-2", "p5" -> "5", "z" -> "0") */
 function cardDisplayValue(cardNum: CardNum): string {
     return String(CARD_VALUES[cardNum]);
 }
@@ -128,8 +128,19 @@ function AppPane({ paneId, title }: { paneId: string; title: string }) {
     const [games, setGames] = useState<readonly GameInfo[]>([]);
     const [message, setMessage] = useState<string>('');
     const [joinCode, setJoinCode] = useState(session.code);
+    const [loading, setLoading] = useState(false);
 
-    // Action atoms in promise mode — each returns a promise that resolves with the success value
+    // Error auto-dismiss timer
+    const errorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    // Cleanup error timer on unmount
+    useEffect(() => {
+        return () => {
+            if (errorTimerRef.current) clearTimeout(errorTimerRef.current);
+        };
+    }, []);
+
+    // Action atoms in promise mode -- each returns a promise that resolves with the success value
     const doCreateGame = useAtomSet(createGameAtom, { mode: 'promise' });
     const doJoinGame = useAtomSet(joinGameAtom, { mode: 'promise' });
     const doDeleteGame = useAtomSet(deleteGameAtom, { mode: 'promise' });
@@ -145,7 +156,7 @@ function AppPane({ paneId, title }: { paneId: string; title: string }) {
             const result = await doGetGames(session.playerId as PlayerId);
             setGames(result);
         } catch {
-            // silently ignore — games list is informational
+            // silently ignore -- games list is informational
         }
     }, [doGetGames, session.playerId]);
 
@@ -182,8 +193,14 @@ function AppPane({ paneId, title }: { paneId: string; title: string }) {
     }, [session.code, refreshRoom]);
 
     async function runAction(action: () => Promise<void>) {
+        setLoading(true);
         try {
             setMessage('');
+            // Clear any pending error timer
+            if (errorTimerRef.current) {
+                clearTimeout(errorTimerRef.current);
+                errorTimerRef.current = null;
+            }
             await action();
         } catch (error: unknown) {
             console.error('Action error:', error);
@@ -193,6 +210,13 @@ function AppPane({ paneId, title }: { paneId: string; title: string }) {
                     ? `${(error as { _tag: string })._tag}: ${JSON.stringify(error)}`
                     : String(error);
             setMessage(msg || 'Something went wrong');
+            // Auto-dismiss error after 4 seconds
+            errorTimerRef.current = setTimeout(() => {
+                setMessage('');
+                errorTimerRef.current = null;
+            }, 4000);
+        } finally {
+            setLoading(false);
         }
     }
 
@@ -231,10 +255,7 @@ function AppPane({ paneId, title }: { paneId: string; title: string }) {
     return (
         <section className="pane">
             <header className="pane-header">
-                <div>
-                    <h2>{title}</h2>
-                    <p className="muted">Local pane identity stays isolated for split-screen testing.</p>
-                </div>
+                <h2>{title}</h2>
                 <div className="info-pill">ID {session.playerId.slice(0, 6)}</div>
             </header>
             <div className="pane-body">
@@ -261,6 +282,7 @@ function AppPane({ paneId, title }: { paneId: string; title: string }) {
                             setJoinCode(code);
                             void refreshRoom(code);
                         }}
+                        loading={loading}
                     />
                 ) : room.lobby.gameStatus === 'lobby' ? (
                     <LobbyView
@@ -276,6 +298,7 @@ function AppPane({ paneId, title }: { paneId: string; title: string }) {
                             const state = await doStartGame({ playerId: session.playerId as PlayerId, code: room.lobby.code });
                             setRoom({ lobby: { ...room.lobby, gameStatus: 'started' }, state });
                         })}
+                        loading={loading}
                     />
                 ) : room.state?.type === 'Flylo' ? (
                     <FlyloView
@@ -292,6 +315,7 @@ function AppPane({ paneId, title }: { paneId: string; title: string }) {
                             const state = await doNextRound({ playerId: session.playerId as PlayerId, code: room.lobby.code });
                             setRoom(prev => prev ? { ...prev, state } : prev);
                         }}
+                        loading={loading}
                     />
                 ) : room.state?.type === 'Flixx' ? (
                     <FlixxView
@@ -304,6 +328,7 @@ function AppPane({ paneId, title }: { paneId: string; title: string }) {
                             const state = await doSendEvent({ playerId: session.playerId as PlayerId, code: room.lobby.code, event });
                             setRoom(prev => prev ? { ...prev, state } : prev);
                         }}
+                        loading={loading}
                     />
                 ) : (
                     <div className="summary-panel">Waiting for game state...</div>
@@ -320,6 +345,7 @@ function HomeView({
     onCreate,
     onJoin,
     onResume,
+    loading,
 }: {
     games: readonly GameInfo[];
     joinCode: string;
@@ -327,17 +353,27 @@ function HomeView({
     onCreate: (gameType: 'Flylo' | 'Flixx') => void;
     onJoin: () => void;
     onResume: (code: string) => void;
+    loading: boolean;
 }) {
     return (
         <>
             <div className="summary-panel">
-                <h3>Create</h3>
-                <p className="muted">
-                    Client-only build. Backend mode: Effect services (in-browser mock or Firebase).
-                </p>
-                <div className="actions">
-                    <button onClick={() => onCreate('Flylo')}>Create Flylo</button>
-                    <button onClick={() => onCreate('Flixx')}>Create Flixx</button>
+                <h3>New Game</h3>
+                <div className="game-cards">
+                    <button className="game-card" onClick={() => onCreate('Flylo')} disabled={loading}>
+                        <span className="game-card-icon">&#9824;</span>
+                        <span className="game-card-info">
+                            <span className="game-card-name">{loading ? 'Flylo...' : 'Flylo'}</span>
+                            <span className="game-card-desc">Card game &middot; 2-6 players</span>
+                        </span>
+                    </button>
+                    <button className="game-card" onClick={() => onCreate('Flixx')} disabled={loading}>
+                        <span className="game-card-icon">&#9858;</span>
+                        <span className="game-card-info">
+                            <span className="game-card-name">{loading ? 'Flixx...' : 'Flixx'}</span>
+                            <span className="game-card-desc">Dice game &middot; 2-6 players</span>
+                        </span>
+                    </button>
                 </div>
             </div>
 
@@ -345,13 +381,13 @@ function HomeView({
                 <h3>Join</h3>
                 <div className="actions">
                     <input value={joinCode} onChange={event => onJoinCodeChange(event.target.value.toUpperCase())} maxLength={4} placeholder="Game code" />
-                    <button onClick={onJoin} disabled={joinCode.trim().length !== 4}>Join Game</button>
+                    <button onClick={onJoin} disabled={joinCode.trim().length !== 4 || loading}>{loading ? 'Joining...' : 'Join Game'}</button>
                 </div>
             </div>
 
             <div className="summary-panel">
                 <h3>My Games</h3>
-                {games.length === 0 ? <p className="muted">No active games for this pane yet.</p> : null}
+                {games.length === 0 ? <p className="muted">No active games yet.</p> : null}
                 <div className="players">
                     {games.map(game => (
                         <button key={game.gameID} onClick={() => onResume(game.gameID)}>
@@ -370,22 +406,36 @@ function LobbyView({
     onStart,
     onDelete,
     onLeave,
+    loading,
 }: {
     lobby: Lobby;
     session: PaneSession;
     onStart: () => void;
     onDelete: () => void;
     onLeave: () => void;
+    loading: boolean;
 }) {
     const isAdmin = lobby.config.adminID === session.playerId;
+    const [copied, setCopied] = useState(false);
+
+    function copyCode() {
+        void navigator.clipboard.writeText(lobby.code).then(() => {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        });
+    }
 
     return (
         <>
-            <div className="summary-panel">
+            <div className="summary-panel lobby-header-panel">
                 <h3>{lobby.config.gameType} Lobby</h3>
+                <div className="lobby-code-display">
+                    <span className="lobby-code-text">{lobby.code}</span>
+                    <button className="btn-secondary lobby-copy-btn" onClick={copyCode}>{copied ? 'Copied!' : 'Copy Code'}</button>
+                </div>
                 <div className="status-row">
-                    <span className="info-pill">Code {lobby.code}</span>
-                    <span className="info-pill">Players {lobby.players.length}</span>
+                    <span className="info-pill">{lobby.players.length}/20 players</span>
+                    <span className="lobby-waiting"><span className="pulse-dot" /> Waiting for players...</span>
                 </div>
             </div>
 
@@ -399,9 +449,9 @@ function LobbyView({
             </div>
 
             <div className="lobby-actions">
-                <button onClick={onLeave}>Leave Pane</button>
-                <button onClick={onStart} disabled={!isAdmin || lobby.players.length < 2}>Start Game</button>
-                <button onClick={onDelete} disabled={!isAdmin}>Delete Game</button>
+                <button className="btn-danger" onClick={onLeave} disabled={loading}>{loading ? 'Leaving...' : 'Leave'}</button>
+                <button onClick={onStart} disabled={!isAdmin || lobby.players.length < 2 || loading}>{loading ? 'Starting...' : 'Start Game'}</button>
+                <button className="btn-danger" onClick={onDelete} disabled={!isAdmin || loading}>Delete Game</button>
             </div>
         </>
     );
@@ -415,6 +465,7 @@ function FlyloView({
     onAction,
     onSendEvent,
     onNextRound,
+    loading,
 }: {
     lobby: Lobby;
     session: PaneSession;
@@ -423,6 +474,7 @@ function FlyloView({
     onAction: (action: () => Promise<void>) => Promise<void>;
     onSendEvent: (event: GameEvent) => Promise<void>;
     onNextRound: () => Promise<void>;
+    loading: boolean;
 }) {
     const ownIndex = game.playerIds.indexOf(session.playerId as PlayerId);
     const ownPlayer = ownIndex >= 0 ? game.flyloPlayers[ownIndex] : null;
@@ -497,7 +549,7 @@ function FlyloView({
                     <button
                         className="flylo-card face-down pile-card"
                         onClick={() => void sendEvent({ kind: 'draw', fromDiscard: false })}
-                        disabled={roundOver || !setupDone || currentPlayerId !== session.playerId || !!ownPlayer?.card || !!ownPlayer?.discardToFlip}
+                        disabled={roundOver || !setupDone || currentPlayerId !== session.playerId || !!ownPlayer?.card || !!ownPlayer?.discardToFlip || loading}
                     >?</button>
                 </div>
                 <div className="pile-group">
@@ -507,14 +559,14 @@ function FlyloView({
                             className={`flylo-card face-up pile-card ${flyloCardColorClass(topDiscard.number)}`}
                             onClick={() => {
                                 if (ownPlayer?.card && !ownPlayer.fromDiscard) {
-                                    // Holding a card drawn from deck → discard it
+                                    // Holding a card drawn from deck -> discard it
                                     void sendEvent({ kind: 'discard' });
                                 } else if (!ownPlayer?.card && !ownPlayer?.discardToFlip) {
-                                    // No held card → draw from discard
+                                    // No held card -> draw from discard
                                     void sendEvent({ kind: 'draw', fromDiscard: true });
                                 }
                             }}
-                            disabled={roundOver || !setupDone || currentPlayerId !== session.playerId || !!ownPlayer?.discardToFlip || (!!ownPlayer?.card && ownPlayer.fromDiscard)}
+                            disabled={roundOver || !setupDone || currentPlayerId !== session.playerId || !!ownPlayer?.discardToFlip || (!!ownPlayer?.card && ownPlayer.fromDiscard) || loading}
                         >{cardDisplayValue(topDiscard.number)}</button>
                     ) : (
                         <div className="flylo-card face-down pile-card">--</div>
@@ -533,8 +585,8 @@ function FlyloView({
             <p className="help-text">{helpText}</p>
 
             <div className="actions">
-                <button onClick={() => void onAction(() => onNextRound())} disabled={!roundOver || gameOver}>Next Round</button>
-                <button onClick={onLeave}>Leave</button>
+                <button className="btn-secondary" onClick={() => void onAction(() => onNextRound())} disabled={!roundOver || gameOver || loading}>{loading ? 'Next Round...' : 'Next Round'}</button>
+                <button className="btn-danger" onClick={onLeave} disabled={loading}>Leave</button>
             </div>
 
             {/* Round Over / Game Over banner */}
@@ -570,13 +622,13 @@ function FlyloView({
                             ))}
                         </div>
                         {!gameOver ? (
-                            <button onClick={() => void onAction(() => onNextRound())}>Next Round</button>
+                            <button onClick={() => void onAction(() => onNextRound())} disabled={loading}>Next Round</button>
                         ) : null}
                     </div>
                 );
             })() : null}
 
-            {/* Player hands — swipeable carousel, starting with self */}
+            {/* Player hands -- swipeable carousel, starting with self */}
             {viewed ? (() => {
                 const { player: viewedPlayer, index: viewedPlayerIdx } = viewed;
                 const flyloPlayer = game.flyloPlayers[viewedPlayerIdx];
@@ -624,7 +676,7 @@ function FlyloView({
                                         key={`card-${cardIndex}`}
                                         className={`flylo-card ${card.flipped ? `face-up ${flyloCardColorClass(card.number)}` : 'face-down'}`}
                                         onClick={() => pressOwnCard(cardIndex)}
-                                        disabled={roundOver}
+                                        disabled={roundOver || loading}
                                     >
                                         {card.flipped ? cardDisplayValue(card.number) : '?'}
                                     </button>
@@ -652,6 +704,7 @@ function FlixxView({
     onLeave,
     onAction,
     onSendEvent,
+    loading,
 }: {
     lobby: Lobby;
     session: PaneSession;
@@ -659,6 +712,7 @@ function FlixxView({
     onLeave: () => void;
     onAction: (action: () => Promise<void>) => Promise<void>;
     onSendEvent: (event: GameEvent) => Promise<void>;
+    loading: boolean;
 }) {
     const ownPlayer = game.flixxPlayers[session.playerId as PlayerId];
     const currentPlayer = lobby.players[game.currentPlayerIndex];
@@ -686,24 +740,55 @@ function FlixxView({
                 {/* Visual dice */}
                 <div className="dice-strip">
                     <span className="die-label">W1</span>
-                    <span className={`die die-white`}>{white1 ?? '–'}</span>
+                    <span className={`die die-white`}>{white1 ?? '-'}</span>
                     <span className="die-label">W2</span>
-                    <span className={`die die-white`}>{white2 ?? '–'}</span>
+                    <span className={`die die-white`}>{white2 ?? '-'}</span>
                     {ALL_FLIXX_COLORS.map(color => (
                         <span key={color} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.2rem' }}>
                             <span className="die-label">{color[0]?.toUpperCase()}</span>
-                            <span className={`die die-${color}`}>{game.currentRoll?.coloredRolls[color]?.value ?? '–'}</span>
+                            <span className={`die die-${color}`}>{game.currentRoll?.coloredRolls[color]?.value ?? '-'}</span>
                         </span>
                     ))}
                 </div>
             </div>
 
             <div className="actions">
-                <button onClick={() => void sendEvent({ kind: 'roll' })} disabled={currentPlayer?.id !== session.playerId || game.rolled || gameOver}>Roll</button>
-                <button onClick={() => void sendEvent({ kind: 'takePenalty' })} disabled={currentPlayer?.id !== session.playerId || !game.rolled || gameOver}>Take Penalty</button>
-                <button onClick={() => void sendEvent({ kind: 'pass' })} disabled={!game.rolled || gameOver}>Pass</button>
-                <button onClick={onLeave}>Leave Pane</button>
+                <button onClick={() => void sendEvent({ kind: 'roll' })} disabled={currentPlayer?.id !== session.playerId || game.rolled || gameOver || loading}>{loading ? 'Roll...' : 'Roll'}</button>
+                <button className="btn-danger" onClick={() => void sendEvent({ kind: 'takePenalty' })} disabled={currentPlayer?.id !== session.playerId || !game.rolled || gameOver || loading}>Take Penalty</button>
+                <button className="btn-secondary" onClick={() => void sendEvent({ kind: 'pass' })} disabled={!game.rolled || gameOver || loading}>Pass</button>
+                <button className="btn-danger" onClick={onLeave} disabled={loading}>Leave</button>
             </div>
+
+            {/* Flixx Game Over banner */}
+            {gameOver ? (() => {
+                const entries = lobby.players.map(player => {
+                    const fp = game.flixxPlayers[player.id as PlayerId];
+                    if (!fp) return null;
+                    return { player, score: playerScore(fp), penalties: fp.card.numPenalties };
+                }).filter(Boolean) as Array<{ player: Player; score: number; penalties: number }>;
+
+                // Highest score wins in Flixx
+                const sorted = [...entries].sort((a, b) => b.score - a.score);
+                const winner = sorted[0];
+
+                return (
+                    <div className="round-over-banner game-over">
+                        <h3>Game Over!</h3>
+                        <div className="winner-callouts">
+                            {winner && <span className="winner-callout">Winner: {winner.player.name} ({winner.score} pts)</span>}
+                        </div>
+                        <div className="round-scores">
+                            {sorted.map((e, idx) => (
+                                <div key={e.player.id} className={`round-score-entry${idx === 0 ? ' winner' : ''}`}>
+                                    <span>{playerLabel(e.player, session)}</span>
+                                    <span>Score: {e.score}</span>
+                                    <span>Penalties: {e.penalties > 0 ? Array.from({ length: e.penalties }, () => 'X').join(' ') : 'None'}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                );
+            })() : null}
 
             <div className="scoreboard">
                 {lobby.players.map(player => {
@@ -711,10 +796,23 @@ function FlixxView({
                     if (!flixxPlayer) {
                         return null;
                     }
+                    const score = playerScore(flixxPlayer);
+                    const penalties = flixxPlayer.card.numPenalties;
+                    const isCurrent = player.id === currentPlayer?.id;
                     return (
-                        <div key={player.id} className={`player-tile${player.id === session.playerId ? ' self' : ''}${player.id === currentPlayer?.id ? ' current' : ''}`}>
+                        <div key={player.id} className={`player-tile${player.id === session.playerId ? ' self' : ''}${isCurrent ? ' current' : ''}`}>
                             <h3>{playerLabel(player, session)}</h3>
-                            <p className="muted">Score {playerScore(flixxPlayer)} · Penalties {flixxPlayer.card.numPenalties}</p>
+                            <div className="flixx-score-line">
+                                <span className="flixx-total-score">{score} pts</span>
+                                {penalties > 0 && (
+                                    <span className="flixx-penalties">
+                                        {Array.from({ length: penalties }, (_, i) => (
+                                            <span key={i} className="penalty-x">X</span>
+                                        ))}
+                                    </span>
+                                )}
+                                {penalties === 0 && <span className="muted" style={{ fontSize: '0.85rem' }}>No penalties</span>}
+                            </div>
                         </div>
                     );
                 })}
@@ -750,7 +848,7 @@ function FlixxView({
                                         </th>
                                         {Array.from({ length: 11 }, (_, index) => index + 2).map(realIndex => {
                                             const visualIndex = LOW_TO_HIGH[color] ? realIndex : 14 - realIndex;
-                                            const disabled = isLocked || !game.rolled || isUnavailable(game, session.playerId, color, realIndex) || gameOver;
+                                            const disabled = isLocked || !game.rolled || isUnavailable(game, session.playerId, color, realIndex) || gameOver || loading;
                                             return (
                                                 <td key={`${color}-${realIndex}`}>
                                                     <button
@@ -777,18 +875,16 @@ function FlixxView({
 export function App() {
     const splitScreen = useAtomValue(splitScreenAtom);
     const setSplitScreen = useAtomSet(splitScreenAtom);
+    const backendMode = typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_BACKEND === 'firebase' ? 'firebase' : 'mock';
 
     return (
         <main className="app-shell">
             <div className="topbar">
                 <div className="title-block">
                     <h1>Whiting Games</h1>
-                    <p>
-                        Client-side React app with no SSR. Backend mode is selected by environment:
-                        mock for in-browser testing or functions for Firebase Functions.
-                    </p>
                 </div>
-                <div className="actions">
+                <div className="actions" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <span className="mode-pill">{backendMode}</span>
                     <button onClick={() => setSplitScreen(current => !current)}>{splitScreen ? 'Single Pane' : 'Split Screen'}</button>
                 </div>
             </div>
@@ -797,8 +893,6 @@ export function App() {
                 <AppPane paneId="left" title="Pane A" />
                 {splitScreen ? <AppPane paneId="right" title="Pane B" /> : null}
             </div>
-
-            <p className="split-note">Split-screen mode keeps separate local player identities while both panes talk to the same in-browser service layer.</p>
         </main>
     );
 }
