@@ -24,7 +24,7 @@ import {
 } from '@games/game-engine';
 import type { CardNum } from '@games/effect-schemas';
 import { useAtomSet, useAtomValue } from '@effect-atom/atom-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useMemo } from 'react';
 import { splitScreenAtom } from './atoms/session.js';
 import {
     createGameAtom,
@@ -106,6 +106,11 @@ function flyloHelpText(game: FlyloGame, session: PaneSession, setupDone: boolean
     const currentPlayerId = game.playerIds[game.currentPlayerIndex] ?? '';
     if (currentPlayerId === session.playerId) return 'Draw a card from deck or discard';
     return `Waiting for ${game.playerIds[game.currentPlayerIndex] ? 'other player' : 'unknown'}...`;
+}
+
+/** Display a card number as its numeric value (e.g. "m2" → "-2", "p5" → "5", "z" → "0") */
+function cardDisplayValue(cardNum: CardNum): string {
+    return String(CARD_VALUES[cardNum]);
 }
 
 const FLIXX_ROW_COLORS: Record<string, string> = {
@@ -444,7 +449,16 @@ function FlyloView({
 
     const topDiscard = game.discardPile.cards.at(-1);
     const helpText = flyloHelpText(game, session, setupDone, roundOver, gameOver);
-    const allFlipped = (deck: { cards: readonly { flipped: boolean }[] }) => deck.cards.every(c => c.flipped);
+
+    // Carousel state — cycle through OTHER players' hands
+    const otherPlayers = useMemo(() =>
+        lobby.players
+            .map((p, i) => ({ player: p, index: i }))
+            .filter(({ player }) => player.id !== session.playerId),
+        [lobby.players, session.playerId]
+    );
+    const [carouselIdx, setCarouselIdx] = useState(0);
+    const viewedOther = otherPlayers[carouselIdx % Math.max(otherPlayers.length, 1)];
 
     return (
         <>
@@ -452,46 +466,50 @@ function FlyloView({
                 <h3>Flylo</h3>
                 <div className="status-row">
                     <span className="info-pill">Code {lobby.code}</span>
-                    <span className="info-pill">Round {game.round + 1}</span>
-                    <span className="info-pill">Current {lobby.players.find(player => player.id === currentPlayerId)?.name ?? 'Unknown'}</span>
+                    <span className="info-pill">Round {game.round}</span>
+                    <span className="info-pill">Turn: {lobby.players.find(player => player.id === currentPlayerId)?.name ?? 'Unknown'}</span>
                 </div>
             </div>
 
             {/* Draw / Discard / Held visual area */}
             <div className="flylo-piles">
                 <div className="pile-group">
-                    <span className="pile-label">Draw Pile</span>
-                    <div className="flylo-card face-down pile-card">?</div>
+                    <span className="pile-label">Draw</span>
+                    <button
+                        className="flylo-card face-down pile-card"
+                        onClick={() => void sendEvent({ kind: 'draw', fromDiscard: false })}
+                        disabled={roundOver || !setupDone || currentPlayerId !== session.playerId || !!ownPlayer?.card || !!ownPlayer?.discardToFlip}
+                    >?</button>
                 </div>
                 <div className="pile-group">
                     <span className="pile-label">Discard</span>
                     {topDiscard ? (
-                        <div className={`flylo-card face-up pile-card ${flyloCardColorClass(topDiscard.number)}`}>
-                            {topDiscard.number}
-                        </div>
+                        <button
+                            className={`flylo-card face-up pile-card ${flyloCardColorClass(topDiscard.number)}`}
+                            onClick={() => void sendEvent({ kind: 'draw', fromDiscard: true })}
+                            disabled={roundOver || !setupDone || currentPlayerId !== session.playerId || !!ownPlayer?.card || !!ownPlayer?.discardToFlip}
+                        >{cardDisplayValue(topDiscard.number)}</button>
                     ) : (
-                        <div className="flylo-card face-down pile-card">empty</div>
+                        <div className="flylo-card face-down pile-card">--</div>
                     )}
                 </div>
                 {ownPlayer?.card ? (
                     <div className="pile-group">
                         <span className="pile-label">Held</span>
                         <div className={`flylo-card face-up pile-card ${flyloCardColorClass(ownPlayer.card.number)}`}>
-                            {ownPlayer.card.number}
+                            {cardDisplayValue(ownPlayer.card.number)}
                         </div>
                     </div>
                 ) : null}
             </div>
 
-            <div className="actions">
-                <button onClick={() => void sendEvent({ kind: 'draw', fromDiscard: false })} disabled={roundOver || !setupDone || currentPlayerId !== session.playerId || !!ownPlayer?.card || !!ownPlayer?.discardToFlip}>Draw Deck</button>
-                <button onClick={() => void sendEvent({ kind: 'draw', fromDiscard: true })} disabled={roundOver || !setupDone || currentPlayerId !== session.playerId || !!ownPlayer?.card || !!ownPlayer?.discardToFlip}>Draw Discard</button>
-                <button onClick={() => void sendEvent({ kind: 'discard' })} disabled={roundOver || !setupDone || currentPlayerId !== session.playerId || !ownPlayer?.card}>Discard Held</button>
-                <button onClick={() => void onAction(() => onNextRound())} disabled={!roundOver || gameOver}>Next Round</button>
-                <button onClick={onLeave}>Leave Pane</button>
-            </div>
-
             <p className="help-text">{helpText}</p>
+
+            <div className="actions">
+                <button onClick={() => void sendEvent({ kind: 'discard' })} disabled={roundOver || !setupDone || currentPlayerId !== session.playerId || !ownPlayer?.card}>Discard</button>
+                <button onClick={() => void onAction(() => onNextRound())} disabled={!roundOver || gameOver}>Next Round</button>
+                <button onClick={onLeave}>Leave</button>
+            </div>
 
             {/* Round Over banner */}
             {roundOver ? (
@@ -501,7 +519,7 @@ function FlyloView({
                         {lobby.players.map((player, index) => {
                             const fp = game.flyloPlayers[index];
                             if (!fp) return null;
-                            const roundScore = allFlipped(fp.deck) ? deckVisibleTotal(fp.deck) : deckVisibleTotal(fp.deck);
+                            const roundScore = deckVisibleTotal(fp.deck);
                             return (
                                 <div key={player.id} className="round-score-entry">
                                     <span>{playerLabel(player, session)}</span>
@@ -517,40 +535,62 @@ function FlyloView({
                 </div>
             ) : null}
 
-            <div className="players">
-                {lobby.players.map((player, index) => {
-                    const flyloPlayer = game.flyloPlayers[index];
-                    const isSelf = player.id === session.playerId;
-                    const isCurrent = player.id === currentPlayerId;
-                    if (!flyloPlayer) {
-                        return null;
-                    }
-                    const hasHiddenCards = flyloPlayer.deck.cards.some(c => !c.flipped);
-                    const roundScore = hasHiddenCards ? '?' : String(deckVisibleTotal(flyloPlayer.deck));
-                    return (
-                        <div key={player.id} className={`card-panel player-tile${isSelf ? ' self' : ''}${isCurrent ? ' current' : ''}`}>
-                            <h3>{playerLabel(player, session)}</h3>
-                            <p className="muted">Round: {roundScore} · Overall: {flyloPlayer.currentScore}</p>
-                            <div className="card-grid">
-                                {flyloPlayer.deck.cards.map((card, cardIndex) => (
-                                    <button
-                                        key={`${player.id}-${cardIndex}`}
-                                        className={`flylo-card ${card.flipped ? `face-up ${flyloCardColorClass(card.number)}` : 'face-down'}`}
-                                        onClick={() => {
-                                            if (isSelf) {
-                                                pressOwnCard(cardIndex);
-                                            }
-                                        }}
-                                        disabled={!isSelf || roundOver}
-                                    >
-                                        {card.flipped ? card.number : '?'}
-                                    </button>
-                                ))}
+            {/* YOUR hand — always visible at the top */}
+            {ownPlayer ? (
+                <div className={`card-panel player-tile self${ownIndex === game.currentPlayerIndex ? ' current' : ''}`}>
+                    <div className="player-hand-header">
+                        <h3>{session.playerName || 'You'} (You)</h3>
+                        <span className="muted">Round: {ownPlayer.deck.cards.some(c => !c.flipped) ? '?' : deckVisibleTotal(ownPlayer.deck)} · Overall: {ownPlayer.currentScore}</span>
+                    </div>
+                    <div className="card-grid">
+                        {ownPlayer.deck.cards.map((card, cardIndex) => (
+                            <button
+                                key={`self-${cardIndex}`}
+                                className={`flylo-card ${card.flipped ? `face-up ${flyloCardColorClass(card.number)}` : 'face-down'}`}
+                                onClick={() => pressOwnCard(cardIndex)}
+                                disabled={roundOver}
+                            >
+                                {card.flipped ? cardDisplayValue(card.number) : '?'}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            ) : null}
+
+            {/* OTHER players — carousel with prev/next buttons */}
+            {otherPlayers.length > 0 && viewedOther ? (() => {
+                const { player: viewedPlayer, index: viewedPlayerIdx } = viewedOther;
+                const flyloPlayer = game.flyloPlayers[viewedPlayerIdx];
+                if (!flyloPlayer) return null;
+                const isCurrent = viewedPlayer.id === currentPlayerId;
+                const hasHidden = flyloPlayer.deck.cards.some(c => !c.flipped);
+                return (
+                    <div className={`card-panel player-tile${isCurrent ? ' current' : ''}`}>
+                        <div className="player-hand-header">
+                            <div className="carousel-nav">
+                                {otherPlayers.length > 1 ? (
+                                    <button className="carousel-btn" onClick={() => setCarouselIdx(i => (i - 1 + otherPlayers.length) % otherPlayers.length)}>&larr;</button>
+                                ) : null}
+                                <h3>{viewedPlayer.name}{isCurrent ? ' (current turn)' : ''}</h3>
+                                {otherPlayers.length > 1 ? (
+                                    <button className="carousel-btn" onClick={() => setCarouselIdx(i => (i + 1) % otherPlayers.length)}>&rarr;</button>
+                                ) : null}
                             </div>
+                            <span className="muted">Round: {hasHidden ? '?' : deckVisibleTotal(flyloPlayer.deck)} · Overall: {flyloPlayer.currentScore}</span>
                         </div>
-                    );
-                })}
-            </div>
+                        <div className="card-grid">
+                            {flyloPlayer.deck.cards.map((card, cardIndex) => (
+                                <div
+                                    key={`other-${viewedPlayer.id}-${cardIndex}`}
+                                    className={`flylo-card ${card.flipped ? `face-up ${flyloCardColorClass(card.number)}` : 'face-down'}`}
+                                >
+                                    {card.flipped ? cardDisplayValue(card.number) : '?'}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                );
+            })() : null}
         </>
     );
 }

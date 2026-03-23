@@ -336,6 +336,69 @@ input {
     font-weight: 600;
 }
 
+/* Player hand header with name + score inline */
+.player-hand-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.5rem;
+}
+
+.player-hand-header h3 {
+    margin: 0;
+}
+
+/* Carousel navigation */
+.carousel-nav {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.carousel-nav h3 {
+    margin: 0;
+    white-space: nowrap;
+}
+
+.carousel-btn {
+    padding: 0.3rem 0.6rem;
+    min-height: auto;
+    font-size: 1rem;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.12);
+}
+
+.carousel-btn:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+/* Flylo card sizing — taller like real cards */
+.flylo-card {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    font-weight: 700;
+    min-height: 4.5rem;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.flylo-card.face-down {
+    color: rgba(255, 255, 255, 0.35);
+    font-size: 1.4rem;
+}
+
+/* Clickable pile cards */
+.pile-card {
+    cursor: pointer;
+}
+
+.pile-card:disabled,
+.pile-card[disabled] {
+    cursor: not-allowed;
+}
+
 /* Flixx row color tints */
 .flixx-cell {
     min-width: 2rem;
