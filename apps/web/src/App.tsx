@@ -15,6 +15,7 @@ import {
     ALL_FLIXX_COLORS,
     CARD_VALUES,
     deckVisibleTotal,
+    FLIXX_SCORE_MAP,
     isGameOverFlylo,
     isRoundOverFlixx,
     isRoundOverFlylo,
@@ -536,29 +537,44 @@ function FlyloView({
                 <button onClick={onLeave}>Leave</button>
             </div>
 
-            {/* Round Over banner */}
-            {roundOver ? (
-                <div className="round-over-banner">
-                    <h3>{gameOver ? 'Game Over!' : 'Round Over!'}</h3>
-                    <div className="round-scores">
-                        {lobby.players.map((player, index) => {
-                            const fp = game.flyloPlayers[index];
-                            if (!fp) return null;
-                            const roundScore = deckVisibleTotal(fp.deck);
-                            return (
-                                <div key={player.id} className="round-score-entry">
-                                    <span>{playerLabel(player, session)}</span>
-                                    <span>Round: {roundScore}</span>
-                                    <span>Total: {fp.currentScore}</span>
+            {/* Round Over / Game Over banner */}
+            {roundOver ? (() => {
+                // Compute round scores (lowest wins)
+                const entries = lobby.players.map((player, index) => {
+                    const fp = game.flyloPlayers[index];
+                    if (!fp) return null;
+                    return { player, fp, roundScore: deckVisibleTotal(fp.deck), totalScore: fp.currentScore };
+                }).filter(Boolean) as Array<{ player: Player; fp: NonNullable<typeof game.flyloPlayers[number]>; roundScore: number; totalScore: number }>;
+
+                const roundWinner = entries.reduce((best, e) => e.roundScore < best.roundScore ? e : best, entries[0]!);
+                const overallLeader = entries.reduce((best, e) => e.totalScore < best.totalScore ? e : best, entries[0]!);
+
+                // Sort by total score ascending for game-over standings
+                const sortedEntries = gameOver ? [...entries].sort((a, b) => a.totalScore - b.totalScore) : entries;
+
+                return (
+                    <div className={`round-over-banner${gameOver ? ' game-over' : ''}`}>
+                        <h3>{gameOver ? 'Game Over!' : 'Round Over!'}</h3>
+                        {/* Winner callouts */}
+                        <div className="winner-callouts">
+                            {roundWinner && <span className="winner-callout">Round winner: {roundWinner.player.name} ({roundWinner.roundScore} pts)</span>}
+                            {overallLeader && <span className="winner-callout">Overall leader: {overallLeader.player.name} ({overallLeader.totalScore} pts total)</span>}
+                        </div>
+                        <div className="round-scores">
+                            {sortedEntries.map((e, sortedIdx) => (
+                                <div key={e.player.id} className={`round-score-entry${gameOver && sortedIdx === 0 ? ' winner' : ''}`}>
+                                    <span>{playerLabel(e.player, session)}</span>
+                                    <span>Round: {e.roundScore}</span>
+                                    <span>Total: {e.totalScore}</span>
                                 </div>
-                            );
-                        })}
+                            ))}
+                        </div>
+                        {!gameOver ? (
+                            <button onClick={() => void onAction(() => onNextRound())}>Next Round</button>
+                        ) : null}
                     </div>
-                    {!gameOver ? (
-                        <button onClick={() => void onAction(() => onNextRound())}>Next Round</button>
-                    ) : null}
-                </div>
-            ) : null}
+                );
+            })() : null}
 
             {/* Player hands — swipeable carousel, starting with self */}
             {viewed ? (() => {
@@ -583,7 +599,14 @@ function FlyloView({
                                 </h3>
                                 <button className="carousel-btn" onClick={() => setCarouselIdx(i => (i + 1) % orderedPlayers.length)}>&rarr;</button>
                             </div>
-                            <span className="muted">Round: {hasHidden ? '?' : deckVisibleTotal(flyloPlayer.deck)} · Overall: {flyloPlayer.currentScore}</span>
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.25rem' }}>
+                                <span className="muted">Round: {hasHidden ? '?' : deckVisibleTotal(flyloPlayer.deck)} · Overall: {flyloPlayer.currentScore}</span>
+                                {!setupDone && (
+                                    flyloPlayerReady(game, viewedPlayerIdx)
+                                        ? <span className="setup-status ready">Ready</span>
+                                        : <span className="setup-status waiting">Flip 2 cards</span>
+                                )}
+                            </div>
                         </div>
                         <div className="carousel-dots">
                             {orderedPlayers.map((_, i) => (
@@ -645,16 +668,32 @@ function FlixxView({
         return onAction(() => onSendEvent(event));
     }
 
+    const white1 = game.currentRoll?.white1.value ?? null;
+    const white2 = game.currentRoll?.white2.value ?? null;
+    const whiteSum = white1 !== null && white2 !== null ? white1 + white2 : null;
+
     return (
         <>
             <div className="summary-panel">
                 <h3>Flixx</h3>
-                <div className="roll-strip">
-                    <span className="roll-pill">Current {currentPlayer?.name ?? 'Unknown'}</span>
-                    <span className="roll-pill">W1 {game.currentRoll?.white1.value ?? '-'}</span>
-                    <span className="roll-pill">W2 {game.currentRoll?.white2.value ?? '-'}</span>
+                <span className="muted" style={{ fontSize: '0.9rem' }}>Current: {currentPlayer?.name ?? 'Unknown'}</span>
+                {/* White sum prominent display */}
+                {whiteSum !== null && (
+                    <div style={{ marginTop: '0.4rem' }}>
+                        <span className="white-sum-pill">White sum: {whiteSum}</span>
+                    </div>
+                )}
+                {/* Visual dice */}
+                <div className="dice-strip">
+                    <span className="die-label">W1</span>
+                    <span className={`die die-white`}>{white1 ?? '–'}</span>
+                    <span className="die-label">W2</span>
+                    <span className={`die die-white`}>{white2 ?? '–'}</span>
                     {ALL_FLIXX_COLORS.map(color => (
-                        <span key={color} className="roll-pill">{color} {game.currentRoll?.coloredRolls[color]?.value ?? '-'}</span>
+                        <span key={color} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.2rem' }}>
+                            <span className="die-label">{color[0]?.toUpperCase()}</span>
+                            <span className={`die die-${color}`}>{game.currentRoll?.coloredRolls[color]?.value ?? '–'}</span>
+                        </span>
                     ))}
                 </div>
             </div>
@@ -700,12 +739,18 @@ function FlixxView({
                                     return null;
                                 }
                                 const rowBg = FLIXX_ROW_COLORS[color] ?? 'transparent';
+                                const isLocked = row.locked;
+                                const markCount = row.row.filter(Boolean).length;
+                                const rowPoints = FLIXX_SCORE_MAP[markCount] ?? 0;
                                 return (
-                                    <tr key={color} style={{ backgroundColor: `${rowBg}22` }}>
-                                        <th style={{ backgroundColor: rowBg, color: '#fff', borderRadius: '8px' }}>{color}</th>
+                                    <tr key={color} className={isLocked ? 'flixx-row-locked' : ''} style={{ backgroundColor: isLocked ? `${rowBg}44` : `${rowBg}22` }}>
+                                        <th className="row-name-cell" style={{ backgroundColor: isLocked ? `${rowBg}88` : rowBg, color: '#fff', borderRadius: '8px', whiteSpace: 'nowrap' }}>
+                                            {isLocked ? '🔒 ' : ''}{color}
+                                            <span className="row-score-badge">{markCount} = {rowPoints}pts</span>
+                                        </th>
                                         {Array.from({ length: 11 }, (_, index) => index + 2).map(realIndex => {
                                             const visualIndex = LOW_TO_HIGH[color] ? realIndex : 14 - realIndex;
-                                            const disabled = !game.rolled || isUnavailable(game, session.playerId, color, realIndex) || gameOver;
+                                            const disabled = isLocked || !game.rolled || isUnavailable(game, session.playerId, color, realIndex) || gameOver;
                                             return (
                                                 <td key={`${color}-${realIndex}`}>
                                                     <button
