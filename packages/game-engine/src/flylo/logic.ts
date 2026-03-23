@@ -91,6 +91,11 @@ function nextFlylo(
   event: FlyloEvent,
 ): Effect.Effect<FlyloGame, InvalidMove | NotYourTurn> {
   return Effect.gen(function* () {
+    // Block all moves when the round is over
+    if (isRoundOverFlylo(state)) {
+      return yield* Effect.fail(new InvalidMove({ message: "Round is over — waiting for next round", playerId }))
+    }
+
     const playerIdx = getPlayerIndex(state, playerId)
     if (playerIdx === -1) {
       return yield* Effect.fail(new InvalidMove({ message: "Player not found", playerId }))

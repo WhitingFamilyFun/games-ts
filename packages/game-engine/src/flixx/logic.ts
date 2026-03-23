@@ -193,6 +193,11 @@ function nextFlixx(
   event: FlixxEvent,
 ): Effect.Effect<FlixxGame, InvalidMove | NotYourTurn> {
   return Effect.gen(function* () {
+    // Block all moves when the round/game is over
+    if (isRoundOverFlixx(state)) {
+      return yield* Effect.fail(new InvalidMove({ message: "Game is over", playerId }))
+    }
+
     const playerIds = Object.keys(state.flixxPlayers)
     const playerIdx = playerIds.indexOf(playerId)
     if (playerIdx === -1) {
