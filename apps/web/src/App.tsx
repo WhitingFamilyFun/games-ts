@@ -132,12 +132,27 @@ function AppPane({ paneId, title }: { paneId: string; title: string }) {
         void refreshRoom(session.code);
     }, [session.code, refreshRoom]);
 
+    // Poll room state every 2s while in a game (so other pane's actions show up)
+    useEffect(() => {
+        if (!session.code) return;
+        const interval = setInterval(() => {
+            void refreshRoom(session.code);
+        }, 2000);
+        return () => clearInterval(interval);
+    }, [session.code, refreshRoom]);
+
     async function runAction(action: () => Promise<void>) {
         try {
             setMessage('');
             await action();
-        } catch (error) {
-            setMessage(error instanceof Error ? error.message : 'Something went wrong');
+        } catch (error: unknown) {
+            console.error('Action error:', error);
+            const msg = error instanceof Error
+                ? error.message
+                : typeof error === 'object' && error !== null && '_tag' in error
+                    ? `${(error as { _tag: string })._tag}: ${JSON.stringify(error)}`
+                    : String(error);
+            setMessage(msg || 'Something went wrong');
         }
     }
 
@@ -204,6 +219,7 @@ function AppPane({ paneId, title }: { paneId: string; title: string }) {
                         onResume={code => {
                             setSession(current => ({ ...current, code }));
                             setJoinCode(code);
+                            void refreshRoom(code);
                         }}
                     />
                 ) : room.lobby.gameStatus === 'lobby' ? (
