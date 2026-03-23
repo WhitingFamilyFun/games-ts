@@ -1,0 +1,29 @@
+{
+    "compilerOptions": {
+        "strict": true,
+        "target": "ES2022",
+        "module": "NodeNext",
+        "moduleResolution": "NodeNext",
+        "baseUrl": ".",
+        "paths": {
+"@games/effect-schemas": [
+                "packages/effect-schemas/src/index.ts"
+            ],
+            "@games/game-engine": [
+                "packages/game-engine/src/index.ts"
+            ],
+            "@games/game-services": [
+                "packages/game-services/src/index.ts"
+            ]
+        },
+        "declaration": true,
+        "declarationMap": true,
+        "sourceMap": true,
+        "esModuleInterop": true,
+        "skipLibCheck": true,
+        "forceConsistentCasingInFileNames": true,
+        "noUncheckedIndexedAccess": true,
+        "noImplicitOverride": true,
+        "exactOptionalPropertyTypes": true
+    }
+}

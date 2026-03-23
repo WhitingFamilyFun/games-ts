@@ -1,0 +1,19 @@
+{
+  "name": "@games/game-services",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@games/effect-schemas": "workspace:*",
+    "@games/game-engine": "workspace:*",
+    "effect": "^3.12.0"
+  },
+  "devDependencies": {
+    "vitest": "^3.0.0"
+  }
+}

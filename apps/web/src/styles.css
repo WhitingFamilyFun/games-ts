@@ -1,0 +1,238 @@
+:root {
+    font-family: "Avenir Next", "Trebuchet MS", sans-serif;
+    color: #f4efe4;
+    background:
+        radial-gradient(circle at top left, rgba(209, 113, 54, 0.32), transparent 32%),
+        radial-gradient(circle at top right, rgba(47, 99, 133, 0.35), transparent 30%),
+        linear-gradient(135deg, #11222f, #1b1821 48%, #2c1c18);
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    min-width: 320px;
+    min-height: 100vh;
+}
+
+button,
+input {
+    font: inherit;
+}
+
+button {
+    border: 0;
+    border-radius: 14px;
+    background: linear-gradient(135deg, #cf6d35, #ac3c31);
+    color: white;
+    padding: 0.8rem 1rem;
+    cursor: pointer;
+    transition: transform 140ms ease, opacity 140ms ease;
+}
+
+button:hover:not(:disabled) {
+    transform: translateY(-1px);
+}
+
+button:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+input {
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 12px;
+    padding: 0.8rem 0.9rem;
+    background: rgba(11, 16, 23, 0.55);
+    color: inherit;
+}
+
+#root {
+    min-height: 100vh;
+}
+
+.app-shell {
+    min-height: 100vh;
+    padding: 1.5rem;
+}
+
+.topbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.title-block h1,
+.title-block p {
+    margin: 0;
+}
+
+.title-block h1 {
+    font-size: clamp(2rem, 4vw, 3.4rem);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.title-block p {
+    color: rgba(244, 239, 228, 0.78);
+    max-width: 48rem;
+}
+
+.pane-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+}
+
+.pane-grid.split {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.pane {
+    display: flex;
+    flex-direction: column;
+    min-height: 72vh;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(8, 10, 15, 0.58);
+    backdrop-filter: blur(16px);
+    border-radius: 24px;
+    overflow: hidden;
+    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.28);
+}
+
+.pane-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1rem 1.2rem;
+    background: rgba(255, 255, 255, 0.04);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.pane-header h2,
+.pane-header p {
+    margin: 0;
+}
+
+.pane-body {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1.2rem;
+}
+
+.stack,
+.actions,
+.players,
+.scoreboard,
+.roll-strip,
+.lobby-actions,
+.status-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
+.card-panel,
+.board-panel,
+.summary-panel {
+    border-radius: 18px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.04);
+    padding: 1rem;
+}
+
+.players,
+.scoreboard {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.player-tile {
+    border-radius: 18px;
+    padding: 0.9rem;
+    background: rgba(0, 0, 0, 0.22);
+    border: 1px solid transparent;
+}
+
+.player-tile.current {
+    border-color: rgba(252, 181, 105, 0.65);
+}
+
+.player-tile.self {
+    background: rgba(45, 92, 124, 0.32);
+}
+
+.player-tile h3,
+.player-tile p,
+.card-panel h3,
+.board-panel h3,
+.summary-panel h3 {
+    margin: 0 0 0.35rem;
+}
+
+.muted {
+    color: rgba(244, 239, 228, 0.7);
+}
+
+.error-banner {
+    border-radius: 14px;
+    padding: 0.85rem 1rem;
+    background: rgba(159, 42, 43, 0.45);
+    border: 1px solid rgba(255, 180, 180, 0.3);
+}
+
+.card-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.5rem;
+}
+
+.flylo-card,
+.flixx-cell {
+    min-height: 3.5rem;
+    border-radius: 14px;
+}
+
+.flylo-card.face-down {
+    background: linear-gradient(135deg, #262d39, #11161f);
+}
+
+.flylo-card.face-up {
+    background: linear-gradient(135deg, #6f876d, #2f5f6d);
+}
+
+.board-panel table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0.4rem;
+}
+
+.board-panel th,
+.board-panel td {
+    text-align: center;
+}
+
+.roll-pill,
+.info-pill {
+    border-radius: 999px;
+    padding: 0.45rem 0.8rem;
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.split-note {
+    font-size: 0.95rem;
+    color: rgba(244, 239, 228, 0.72);
+}
+
+@media (max-width: 960px) {
+    .pane-grid.split {
+        grid-template-columns: 1fr;
+    }
+}
