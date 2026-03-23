@@ -24,7 +24,7 @@ import {
 } from '@games/game-engine';
 import type { CardNum } from '@games/effect-schemas';
 import { useAtomSet, useAtomValue } from '@effect-atom/atom-react';
-import { useCallback, useEffect, useState, useMemo } from 'react';
+import { useCallback, useEffect, useState, useMemo, useRef, type TouchEvent as ReactTouchEvent } from 'react';
 import { splitScreenAtom } from './atoms/session.js';
 import {
     createGameAtom,
@@ -450,15 +450,33 @@ function FlyloView({
     const topDiscard = game.discardPile.cards.at(-1);
     const helpText = flyloHelpText(game, session, setupDone, roundOver, gameOver);
 
-    // Carousel state — cycle through OTHER players' hands
-    const otherPlayers = useMemo(() =>
-        lobby.players
-            .map((p, i) => ({ player: p, index: i }))
-            .filter(({ player }) => player.id !== session.playerId),
-        [lobby.players, session.playerId]
-    );
+    // Carousel: all players, starting with self
+    const orderedPlayers = useMemo(() => {
+        const selfIdx = lobby.players.findIndex(p => p.id === session.playerId);
+        if (selfIdx === -1) return lobby.players.map((p, i) => ({ player: p, index: i }));
+        const result = [];
+        for (let i = 0; i < lobby.players.length; i++) {
+            const idx = (selfIdx + i) % lobby.players.length;
+            result.push({ player: lobby.players[idx]!, index: idx });
+        }
+        return result;
+    }, [lobby.players, session.playerId]);
+
     const [carouselIdx, setCarouselIdx] = useState(0);
-    const viewedOther = otherPlayers[carouselIdx % Math.max(otherPlayers.length, 1)];
+    const viewedIdx = carouselIdx % Math.max(orderedPlayers.length, 1);
+    const viewed = orderedPlayers[viewedIdx];
+
+    // Swipe handling
+    const touchStartX = useRef<number | null>(null);
+    const handleTouchStart = (e: ReactTouchEvent) => { touchStartX.current = e.touches[0]?.clientX ?? null; };
+    const handleTouchEnd = (e: ReactTouchEvent) => {
+        if (touchStartX.current === null) return;
+        const dx = (e.changedTouches[0]?.clientX ?? 0) - touchStartX.current;
+        touchStartX.current = null;
+        if (Math.abs(dx) < 40) return; // too short
+        if (dx < 0) setCarouselIdx(i => (i + 1) % orderedPlayers.length); // swipe left = next
+        else setCarouselIdx(i => (i - 1 + orderedPlayers.length) % orderedPlayers.length); // swipe right = prev
+    };
 
     return (
         <>
@@ -542,57 +560,59 @@ function FlyloView({
                 </div>
             ) : null}
 
-            {/* YOUR hand — always visible at the top */}
-            {ownPlayer ? (
-                <div className={`card-panel player-tile self${ownIndex === game.currentPlayerIndex ? ' current' : ''}`}>
-                    <div className="player-hand-header">
-                        <h3>{session.playerName || 'You'} (You)</h3>
-                        <span className="muted">Round: {ownPlayer.deck.cards.some(c => !c.flipped) ? '?' : deckVisibleTotal(ownPlayer.deck)} · Overall: {ownPlayer.currentScore}</span>
-                    </div>
-                    <div className="card-grid">
-                        {ownPlayer.deck.cards.map((card, cardIndex) => (
-                            <button
-                                key={`self-${cardIndex}`}
-                                className={`flylo-card ${card.flipped ? `face-up ${flyloCardColorClass(card.number)}` : 'face-down'}`}
-                                onClick={() => pressOwnCard(cardIndex)}
-                                disabled={roundOver}
-                            >
-                                {card.flipped ? cardDisplayValue(card.number) : '?'}
-                            </button>
-                        ))}
-                    </div>
-                </div>
-            ) : null}
-
-            {/* OTHER players — carousel with prev/next buttons */}
-            {otherPlayers.length > 0 && viewedOther ? (() => {
-                const { player: viewedPlayer, index: viewedPlayerIdx } = viewedOther;
+            {/* Player hands — swipeable carousel, starting with self */}
+            {viewed ? (() => {
+                const { player: viewedPlayer, index: viewedPlayerIdx } = viewed;
                 const flyloPlayer = game.flyloPlayers[viewedPlayerIdx];
                 if (!flyloPlayer) return null;
+                const isSelf = viewedPlayer.id === session.playerId;
                 const isCurrent = viewedPlayer.id === currentPlayerId;
                 const hasHidden = flyloPlayer.deck.cards.some(c => !c.flipped);
                 return (
-                    <div className={`card-panel player-tile${isCurrent ? ' current' : ''}`}>
+                    <div
+                        className={`card-panel player-tile${isSelf ? ' self' : ''}${isCurrent ? ' current' : ''} carousel-panel`}
+                        onTouchStart={handleTouchStart}
+                        onTouchEnd={handleTouchEnd}
+                    >
                         <div className="player-hand-header">
                             <div className="carousel-nav">
-                                {otherPlayers.length > 1 ? (
-                                    <button className="carousel-btn" onClick={() => setCarouselIdx(i => (i - 1 + otherPlayers.length) % otherPlayers.length)}>&larr;</button>
-                                ) : null}
-                                <h3>{viewedPlayer.name}{isCurrent ? ' (current turn)' : ''}</h3>
-                                {otherPlayers.length > 1 ? (
-                                    <button className="carousel-btn" onClick={() => setCarouselIdx(i => (i + 1) % otherPlayers.length)}>&rarr;</button>
-                                ) : null}
+                                <button className="carousel-btn" onClick={() => setCarouselIdx(i => (i - 1 + orderedPlayers.length) % orderedPlayers.length)}>&larr;</button>
+                                <h3>
+                                    {isSelf ? `${viewedPlayer.name} (You)` : viewedPlayer.name}
+                                    {isCurrent ? ' · Turn' : ''}
+                                </h3>
+                                <button className="carousel-btn" onClick={() => setCarouselIdx(i => (i + 1) % orderedPlayers.length)}>&rarr;</button>
                             </div>
                             <span className="muted">Round: {hasHidden ? '?' : deckVisibleTotal(flyloPlayer.deck)} · Overall: {flyloPlayer.currentScore}</span>
                         </div>
+                        <div className="carousel-dots">
+                            {orderedPlayers.map((_, i) => (
+                                <button
+                                    key={i}
+                                    className={`dot${i === viewedIdx ? ' active' : ''}`}
+                                    onClick={() => setCarouselIdx(i)}
+                                />
+                            ))}
+                        </div>
                         <div className="card-grid">
                             {flyloPlayer.deck.cards.map((card, cardIndex) => (
-                                <div
-                                    key={`other-${viewedPlayer.id}-${cardIndex}`}
-                                    className={`flylo-card ${card.flipped ? `face-up ${flyloCardColorClass(card.number)}` : 'face-down'}`}
-                                >
-                                    {card.flipped ? cardDisplayValue(card.number) : '?'}
-                                </div>
+                                isSelf ? (
+                                    <button
+                                        key={`card-${cardIndex}`}
+                                        className={`flylo-card ${card.flipped ? `face-up ${flyloCardColorClass(card.number)}` : 'face-down'}`}
+                                        onClick={() => pressOwnCard(cardIndex)}
+                                        disabled={roundOver}
+                                    >
+                                        {card.flipped ? cardDisplayValue(card.number) : '?'}
+                                    </button>
+                                ) : (
+                                    <div
+                                        key={`card-${cardIndex}`}
+                                        className={`flylo-card ${card.flipped ? `face-up ${flyloCardColorClass(card.number)}` : 'face-down'}`}
+                                    >
+                                        {card.flipped ? cardDisplayValue(card.number) : '?'}
+                                    </div>
+                                )
                             ))}
                         </div>
                     </div>

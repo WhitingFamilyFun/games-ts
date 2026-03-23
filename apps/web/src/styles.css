@@ -373,6 +373,35 @@ input {
     background: rgba(255, 255, 255, 0.2);
 }
 
+/* Carousel panel — swipeable player hands */
+.carousel-panel {
+    touch-action: pan-y;
+    user-select: none;
+    overflow: hidden;
+}
+
+.carousel-dots {
+    display: flex;
+    justify-content: center;
+    gap: 0.4rem;
+    margin-bottom: 0.5rem;
+}
+
+.dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    padding: 0;
+    min-height: auto;
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    cursor: pointer;
+}
+
+.dot.active {
+    background: rgba(252, 181, 105, 0.85);
+}
+
 /* Flylo card sizing — taller like real cards */
 .flylo-card {
     display: flex;
