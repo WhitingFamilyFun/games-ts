@@ -190,7 +190,7 @@ input {
 
 .card-grid {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 0.5rem;
 }
 
@@ -206,6 +206,27 @@ input {
 
 .flylo-card.face-up {
     background: linear-gradient(135deg, #6f876d, #2f5f6d);
+}
+
+.flylo-card.face-up.flylo-dark-blue {
+    background: linear-gradient(135deg, #283593, #1a237e);
+}
+
+.flylo-card.face-up.flylo-green {
+    background: linear-gradient(135deg, #388e3c, #2e7d32);
+}
+
+.flylo-card.face-up.flylo-light-blue {
+    background: linear-gradient(135deg, #039be5, #0288d1);
+}
+
+.flylo-card.face-up.flylo-yellow {
+    background: linear-gradient(135deg, #fbc02d, #f9a825);
+    color: #333;
+}
+
+.flylo-card.face-up.flylo-red {
+    background: linear-gradient(135deg, #d32f2f, #c62828);
 }
 
 .board-panel table {
@@ -229,6 +250,95 @@ input {
 .split-note {
     font-size: 0.95rem;
     color: rgba(244, 239, 228, 0.72);
+}
+
+/* Flylo piles row */
+.flylo-piles {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    align-items: flex-end;
+    justify-content: center;
+    padding: 0.5rem 0;
+}
+
+.pile-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.pile-label {
+    font-size: 0.8rem;
+    color: rgba(244, 239, 228, 0.6);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.pile-card {
+    width: 4rem;
+    min-height: 5.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+    font-weight: 600;
+    cursor: default;
+}
+
+/* Help text */
+.help-text {
+    text-align: center;
+    color: rgba(244, 239, 228, 0.85);
+    font-size: 1rem;
+    font-weight: 500;
+    margin: 0.25rem 0;
+    padding: 0.5rem;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.06);
+}
+
+/* Round over banner */
+.round-over-banner {
+    border-radius: 18px;
+    border: 1px solid rgba(252, 181, 105, 0.45);
+    background: rgba(252, 181, 105, 0.12);
+    padding: 1rem 1.2rem;
+    text-align: center;
+}
+
+.round-over-banner h3 {
+    margin: 0 0 0.6rem;
+    font-size: 1.3rem;
+}
+
+.round-scores {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    justify-content: center;
+    margin-bottom: 0.75rem;
+}
+
+.round-score-entry {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.2rem;
+    padding: 0.5rem 0.8rem;
+    border-radius: 12px;
+    background: rgba(0, 0, 0, 0.25);
+    min-width: 100px;
+}
+
+.round-score-entry span:first-child {
+    font-weight: 600;
+}
+
+/* Flixx row color tints */
+.flixx-cell {
+    min-width: 2rem;
 }
 
 @media (max-width: 960px) {

@@ -13,6 +13,8 @@ import type {
 } from '@games/effect-schemas';
 import {
     ALL_FLIXX_COLORS,
+    CARD_VALUES,
+    deckVisibleTotal,
     isGameOverFlylo,
     isRoundOverFlixx,
     isRoundOverFlylo,
@@ -20,6 +22,7 @@ import {
     LOW_TO_HIGH,
     playerScore,
 } from '@games/game-engine';
+import type { CardNum } from '@games/effect-schemas';
 import { useAtomSet, useAtomValue } from '@effect-atom/atom-react';
 import { useCallback, useEffect, useState } from 'react';
 import { splitScreenAtom } from './atoms/session.js';
@@ -81,6 +84,37 @@ function flyloPlayerReady(game: FlyloGame, playerIndex: number): boolean {
 function flyloSetupDone(game: FlyloGame): boolean {
     return game.flyloPlayers.every((_, index) => flyloPlayerReady(game, index));
 }
+
+function flyloCardColorClass(cardNum: CardNum): string {
+    if (cardNum === 'm2' || cardNum === 'm1') return 'flylo-dark-blue';
+    if (cardNum === 'z') return 'flylo-green';
+    const val = CARD_VALUES[cardNum];
+    if (val >= 1 && val <= 4) return 'flylo-light-blue';
+    if (val >= 5 && val <= 8) return 'flylo-yellow';
+    return 'flylo-red';
+}
+
+function flyloHelpText(game: FlyloGame, session: PaneSession, setupDone: boolean, roundOver: boolean, gameOver: boolean): string {
+    if (gameOver) return 'Game over!';
+    if (roundOver) return 'Round over!';
+    const ownIndex = game.playerIds.indexOf(session.playerId as PlayerId);
+    const ownPlayer = ownIndex >= 0 ? game.flyloPlayers[ownIndex] : null;
+    if (!setupDone) return 'Flip 2 cards to start';
+    if (!ownPlayer) return '';
+    if (ownPlayer.discardToFlip) return 'Flip a face-down card';
+    if (ownPlayer.card) return 'Replace a card in your grid or discard';
+    const currentPlayerId = game.playerIds[game.currentPlayerIndex] ?? '';
+    if (currentPlayerId === session.playerId) return 'Draw a card from deck or discard';
+    return `Waiting for ${game.playerIds[game.currentPlayerIndex] ? 'other player' : 'unknown'}...`;
+}
+
+const FLIXX_ROW_COLORS: Record<string, string> = {
+    red: '#c62828',
+    yellow: '#f9a825',
+    green: '#2e7d32',
+    blue: '#0288d1',
+    purple: '#7b1fa2',
+};
 
 function AppPane({ paneId, title }: { paneId: string; title: string }) {
     const [session, setSession] = usePaneSession(paneId);
@@ -408,26 +442,80 @@ function FlyloView({
         }
     }
 
+    const topDiscard = game.discardPile.cards.at(-1);
+    const helpText = flyloHelpText(game, session, setupDone, roundOver, gameOver);
+    const allFlipped = (deck: { cards: readonly { flipped: boolean }[] }) => deck.cards.every(c => c.flipped);
+
     return (
         <>
             <div className="summary-panel">
                 <h3>Flylo</h3>
                 <div className="status-row">
                     <span className="info-pill">Code {lobby.code}</span>
+                    <span className="info-pill">Round {game.round + 1}</span>
                     <span className="info-pill">Current {lobby.players.find(player => player.id === currentPlayerId)?.name ?? 'Unknown'}</span>
-                    <span className="info-pill">Discard {game.discardPile.cards.at(-1)?.number ?? 'empty'}</span>
-                    <span className="info-pill">Held {ownPlayer?.card?.number ?? 'none'}</span>
                 </div>
-                <p className="muted">Split-screen setup lets each pane reveal its own first two cards locally before the game turn order begins.</p>
+            </div>
+
+            {/* Draw / Discard / Held visual area */}
+            <div className="flylo-piles">
+                <div className="pile-group">
+                    <span className="pile-label">Draw Pile</span>
+                    <div className="flylo-card face-down pile-card">?</div>
+                </div>
+                <div className="pile-group">
+                    <span className="pile-label">Discard</span>
+                    {topDiscard ? (
+                        <div className={`flylo-card face-up pile-card ${flyloCardColorClass(topDiscard.number)}`}>
+                            {topDiscard.number}
+                        </div>
+                    ) : (
+                        <div className="flylo-card face-down pile-card">empty</div>
+                    )}
+                </div>
+                {ownPlayer?.card ? (
+                    <div className="pile-group">
+                        <span className="pile-label">Held</span>
+                        <div className={`flylo-card face-up pile-card ${flyloCardColorClass(ownPlayer.card.number)}`}>
+                            {ownPlayer.card.number}
+                        </div>
+                    </div>
+                ) : null}
             </div>
 
             <div className="actions">
-                <button onClick={() => void sendEvent({ kind: 'draw', fromDiscard: false })} disabled={!setupDone || currentPlayerId !== session.playerId || !!ownPlayer?.card || !!ownPlayer?.discardToFlip}>Draw Deck</button>
-                <button onClick={() => void sendEvent({ kind: 'draw', fromDiscard: true })} disabled={!setupDone || currentPlayerId !== session.playerId || !!ownPlayer?.card || !!ownPlayer?.discardToFlip}>Draw Discard</button>
-                <button onClick={() => void sendEvent({ kind: 'discard' })} disabled={!setupDone || currentPlayerId !== session.playerId || !ownPlayer?.card}>Discard Held</button>
+                <button onClick={() => void sendEvent({ kind: 'draw', fromDiscard: false })} disabled={roundOver || !setupDone || currentPlayerId !== session.playerId || !!ownPlayer?.card || !!ownPlayer?.discardToFlip}>Draw Deck</button>
+                <button onClick={() => void sendEvent({ kind: 'draw', fromDiscard: true })} disabled={roundOver || !setupDone || currentPlayerId !== session.playerId || !!ownPlayer?.card || !!ownPlayer?.discardToFlip}>Draw Discard</button>
+                <button onClick={() => void sendEvent({ kind: 'discard' })} disabled={roundOver || !setupDone || currentPlayerId !== session.playerId || !ownPlayer?.card}>Discard Held</button>
                 <button onClick={() => void onAction(() => onNextRound())} disabled={!roundOver || gameOver}>Next Round</button>
                 <button onClick={onLeave}>Leave Pane</button>
             </div>
+
+            <p className="help-text">{helpText}</p>
+
+            {/* Round Over banner */}
+            {roundOver ? (
+                <div className="round-over-banner">
+                    <h3>{gameOver ? 'Game Over!' : 'Round Over!'}</h3>
+                    <div className="round-scores">
+                        {lobby.players.map((player, index) => {
+                            const fp = game.flyloPlayers[index];
+                            if (!fp) return null;
+                            const roundScore = allFlipped(fp.deck) ? deckVisibleTotal(fp.deck) : deckVisibleTotal(fp.deck);
+                            return (
+                                <div key={player.id} className="round-score-entry">
+                                    <span>{playerLabel(player, session)}</span>
+                                    <span>Round: {roundScore}</span>
+                                    <span>Total: {fp.currentScore}</span>
+                                </div>
+                            );
+                        })}
+                    </div>
+                    {!gameOver ? (
+                        <button onClick={() => void onAction(() => onNextRound())}>Next Round</button>
+                    ) : null}
+                </div>
+            ) : null}
 
             <div className="players">
                 {lobby.players.map((player, index) => {
@@ -437,21 +525,23 @@ function FlyloView({
                     if (!flyloPlayer) {
                         return null;
                     }
+                    const hasHiddenCards = flyloPlayer.deck.cards.some(c => !c.flipped);
+                    const roundScore = hasHiddenCards ? '?' : String(deckVisibleTotal(flyloPlayer.deck));
                     return (
                         <div key={player.id} className={`card-panel player-tile${isSelf ? ' self' : ''}${isCurrent ? ' current' : ''}`}>
                             <h3>{playerLabel(player, session)}</h3>
-                            <p className="muted">Score {flyloPlayer.currentScore} · Ready {flyloPlayerReady(game, index) ? 'yes' : 'no'}</p>
+                            <p className="muted">Round: {roundScore} · Overall: {flyloPlayer.currentScore}</p>
                             <div className="card-grid">
                                 {flyloPlayer.deck.cards.map((card, cardIndex) => (
                                     <button
                                         key={`${player.id}-${cardIndex}`}
-                                        className={`flylo-card ${card.flipped ? 'face-up' : 'face-down'}`}
+                                        className={`flylo-card ${card.flipped ? `face-up ${flyloCardColorClass(card.number)}` : 'face-down'}`}
                                         onClick={() => {
                                             if (isSelf) {
                                                 pressOwnCard(cardIndex);
                                             }
                                         }}
-                                        disabled={!isSelf}
+                                        disabled={!isSelf || roundOver}
                                     >
                                         {card.flipped ? card.number : '?'}
                                     </button>
@@ -542,9 +632,10 @@ function FlixxView({
                                 if (!row) {
                                     return null;
                                 }
+                                const rowBg = FLIXX_ROW_COLORS[color] ?? 'transparent';
                                 return (
-                                    <tr key={color}>
-                                        <th>{color}</th>
+                                    <tr key={color} style={{ backgroundColor: `${rowBg}22` }}>
+                                        <th style={{ backgroundColor: rowBg, color: '#fff', borderRadius: '8px' }}>{color}</th>
                                         {Array.from({ length: 11 }, (_, index) => index + 2).map(realIndex => {
                                             const visualIndex = LOW_TO_HIGH[color] ? realIndex : 14 - realIndex;
                                             const disabled = !game.rolled || isUnavailable(game, session.playerId, color, realIndex) || gameOver;
