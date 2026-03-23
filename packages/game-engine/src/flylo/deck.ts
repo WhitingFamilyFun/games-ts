@@ -108,23 +108,27 @@ export function deckVisibleTotal(deck: Deck): number {
     .reduce((sum, c) => sum + CARD_VALUES[c.number], 0)
 }
 
-/** Returns true if any three consecutive cards in the deck share the same CardNum. */
+/** Returns true if any three consecutive FACE-UP cards in the deck share the same CardNum. */
 export function hasThreesome(deck: Deck): boolean {
   for (let i = 0; i <= deck.cards.length - 3; i++) {
-    if (
-      deck.cards[i]!.number === deck.cards[i + 1]!.number &&
-      deck.cards[i]!.number === deck.cards[i + 2]!.number
-    ) return true
+    const a = deck.cards[i]!
+    const b = deck.cards[i + 1]!
+    const c = deck.cards[i + 2]!
+    if (a.flipped && b.flipped && c.flipped && a.number === b.number && a.number === c.number) {
+      return true
+    }
   }
   return false
 }
 
 export function threesomeStartIndex(deck: Deck): number {
   for (let i = 0; i <= deck.cards.length - 3; i++) {
-    if (
-      deck.cards[i]!.number === deck.cards[i + 1]!.number &&
-      deck.cards[i]!.number === deck.cards[i + 2]!.number
-    ) return i
+    const a = deck.cards[i]!
+    const b = deck.cards[i + 1]!
+    const c = deck.cards[i + 2]!
+    if (a.flipped && b.flipped && c.flipped && a.number === b.number && a.number === c.number) {
+      return i
+    }
   }
   return -1
 }

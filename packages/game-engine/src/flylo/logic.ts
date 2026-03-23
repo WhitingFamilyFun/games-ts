@@ -408,11 +408,16 @@ function finishMove(
   return { ...game, currentPlayerIndex: (playerIdx + 1) % game.flyloPlayers.length }
 }
 
+/**
+ * The round is done when firstPlayerOut is set and the turn has come
+ * back around to them — meaning every other player got one final turn.
+ * Note: finishMove calls this BEFORE advancing currentPlayerIndex,
+ * so we check if the NEXT player would be firstPlayerOutIndex.
+ */
 function isRoundDone(state: FlyloGame): boolean {
   if (state.firstPlayerOutIndex === null) return false
-  return state.currentPlayerIndex === state.firstPlayerOutIndex
-    ? state.flyloPlayers.every(isEndCondition)
-    : false
+  const nextPlayer = (state.currentPlayerIndex + 1) % state.flyloPlayers.length
+  return nextPlayer === state.firstPlayerOutIndex
 }
 
 function flipAllForRound(state: FlyloGame): FlyloGame {
