@@ -482,12 +482,20 @@ function FlyloView({
                     >?</button>
                 </div>
                 <div className="pile-group">
-                    <span className="pile-label">Discard</span>
+                    <span className="pile-label">{ownPlayer?.card ? 'Discard Here' : 'Discard'}</span>
                     {topDiscard ? (
                         <button
                             className={`flylo-card face-up pile-card ${flyloCardColorClass(topDiscard.number)}`}
-                            onClick={() => void sendEvent({ kind: 'draw', fromDiscard: true })}
-                            disabled={roundOver || !setupDone || currentPlayerId !== session.playerId || !!ownPlayer?.card || !!ownPlayer?.discardToFlip}
+                            onClick={() => {
+                                if (ownPlayer?.card && !ownPlayer.fromDiscard) {
+                                    // Holding a card drawn from deck → discard it
+                                    void sendEvent({ kind: 'discard' });
+                                } else if (!ownPlayer?.card && !ownPlayer?.discardToFlip) {
+                                    // No held card → draw from discard
+                                    void sendEvent({ kind: 'draw', fromDiscard: true });
+                                }
+                            }}
+                            disabled={roundOver || !setupDone || currentPlayerId !== session.playerId || !!ownPlayer?.discardToFlip || (!!ownPlayer?.card && ownPlayer.fromDiscard)}
                         >{cardDisplayValue(topDiscard.number)}</button>
                     ) : (
                         <div className="flylo-card face-down pile-card">--</div>
@@ -506,7 +514,6 @@ function FlyloView({
             <p className="help-text">{helpText}</p>
 
             <div className="actions">
-                <button onClick={() => void sendEvent({ kind: 'discard' })} disabled={roundOver || !setupDone || currentPlayerId !== session.playerId || !ownPlayer?.card}>Discard</button>
                 <button onClick={() => void onAction(() => onNextRound())} disabled={!roundOver || gameOver}>Next Round</button>
                 <button onClick={onLeave}>Leave</button>
             </div>
