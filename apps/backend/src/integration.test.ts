@@ -31,7 +31,7 @@ const runExit = <A>(effect: Effect.Effect<A, unknown, Database>) =>
   Effect.runPromiseExit(Effect.provide(effect, FirebaseDatabaseLive))
 
 describe("Game lifecycle", () => {
-  it("create → join → getLobby → start", async () => {
+  it("create → join → read lobby from DB → start", async () => {
     // Create game
     const createResult = (await run(
       handlers.createGameHandler({
@@ -46,12 +46,11 @@ describe("Game lifecycle", () => {
     await run(handlers.joinGameHandler({ code, playerID: "alice", name: "Alice" }))
     await run(handlers.joinGameHandler({ code, playerID: "bob", name: "Bob" }))
 
-    // Get lobby
-    const lobbyResult = (await run(handlers.getLobbyHandler({ code }))) as {
-      lobby: { players: Array<{ id: string; name: string }>; gameStatus: string }
-    }
-    expect(lobbyResult.lobby.players).toHaveLength(2)
-    expect(lobbyResult.lobby.gameStatus).toBe("lobby")
+    // Read lobby directly from DB (replaces getLobby polling endpoint)
+    const lobbySnap = await admin.database().ref(`games/${code}/lobby`).get()
+    const lobbyData = lobbySnap.val() as { players: Array<{ id: string; name: string }>; gameStatus: string }
+    expect(lobbyData.players).toHaveLength(2)
+    expect(lobbyData.gameStatus).toBe("lobby")
 
     // Start game
     const startResult = (await run(
@@ -60,11 +59,10 @@ describe("Game lifecycle", () => {
     expect(startResult.state.type).toBe("Flylo")
     expect(startResult.state.status).toBe("started")
 
-    // Get game state
-    const stateResult = (await run(handlers.getGameStateHandler({ code }))) as {
-      state: { type: string }
-    }
-    expect(stateResult.state.type).toBe("Flylo")
+    // Read game state directly from DB (replaces getGameState polling endpoint)
+    const stateSnap = await admin.database().ref(`games/${code}/state`).get()
+    const stateData = stateSnap.val() as { type: string }
+    expect(stateData.type).toBe("Flylo")
   })
 
   it("create → join → delete", async () => {
@@ -83,9 +81,9 @@ describe("Game lifecycle", () => {
     )) as { success: boolean }
     expect(deleteResult.success).toBe(true)
 
-    // Game should be gone
-    const exit = await runExit(handlers.getGameStateHandler({ code }))
-    expect(Exit.isFailure(exit)).toBe(true)
+    // Game should be gone — verify directly from DB
+    const stateSnap = await admin.database().ref(`games/${code}/state`).get()
+    expect(stateSnap.exists()).toBe(false)
   })
 
   it("getGames returns player's games", async () => {
@@ -123,10 +121,10 @@ describe("Game lifecycle", () => {
     await run(handlers.joinGameHandler({ code, playerID: "alice", name: "Alice" }))
     await run(handlers.joinGameHandler({ code, playerID: "alice", name: "Alice" }))
 
-    const lobbyResult = (await run(handlers.getLobbyHandler({ code }))) as {
-      lobby: { players: Array<{ id: string }> }
-    }
-    expect(lobbyResult.lobby.players).toHaveLength(1)
+    // Read lobby directly from DB (replaces getLobby polling endpoint)
+    const lobbySnap = await admin.database().ref(`games/${code}/lobby`).get()
+    const lobbyData = lobbySnap.val() as { players: Array<{ id: string }> }
+    expect(lobbyData.players).toHaveLength(1)
   })
 })
 
@@ -149,11 +147,6 @@ describe("error cases", () => {
     const exit = await runExit(
       handlers.deleteGameHandler({ code: "ZZZZ", playerID: "alice" })
     )
-    expect(Exit.isFailure(exit)).toBe(true)
-  })
-
-  it("rejects getGameState for nonexistent game", async () => {
-    const exit = await runExit(handlers.getGameStateHandler({ code: "ZZZZ" }))
     expect(Exit.isFailure(exit)).toBe(true)
   })
 

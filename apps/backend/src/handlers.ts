@@ -15,9 +15,7 @@ import {
   NextRoundRequest,
   NextRoundResponse,
   GameState,
-  GameEvent,
   Lobby,
-  GameInfo,
   GameNotFound,
   InvalidGameState,
   type GameCode,
@@ -239,32 +237,4 @@ export const nextRoundHandler = (body: unknown) =>
     return { state: newState }
   })
 
-// --- getGameState (polling endpoint) ---
-
-export const getGameStateHandler = (body: unknown) =>
-  Effect.gen(function* () {
-    const req = yield* Schema.decodeUnknown(Schema.Struct({ code: Schema.String }))(body)
-    const db = yield* Database
-
-    const stateData = yield* db.get(`games/${req.code}/state`)
-    if (stateData == null) {
-      return yield* new GameNotFound({ code: req.code })
-    }
-
-    return { state: stateData }
-  })
-
-// --- getLobby (polling endpoint) ---
-
-export const getLobbyHandler = (body: unknown) =>
-  Effect.gen(function* () {
-    const req = yield* Schema.decodeUnknown(Schema.Struct({ code: Schema.String }))(body)
-    const db = yield* Database
-
-    const lobbyData = yield* db.get(`games/${req.code}/lobby`)
-    if (lobbyData == null) {
-      return yield* new GameNotFound({ code: req.code })
-    }
-
-    return { lobby: lobbyData }
-  })
+// getGameState and getLobby removed — replaced by Firebase RTDB real-time listeners

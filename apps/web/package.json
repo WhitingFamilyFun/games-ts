@@ -17,6 +17,7 @@
         "@games/game-engine": "workspace:*",
         "@games/game-services": "workspace:*",
         "effect": "^3.21.0",
+        "firebase": "^12.11.0",
         "react": "^19.1.0",
         "react-dom": "^19.1.0"
     },

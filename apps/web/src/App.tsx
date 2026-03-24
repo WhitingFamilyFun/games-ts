@@ -38,6 +38,7 @@ import {
     nextRoundAtom,
 } from './atoms/game.js';
 import type { RoomSnapshot } from '@games/game-services';
+import { useFirebaseRoom } from './lib/useFirebaseRoom.js';
 
 type PaneSession = {
     playerId: string;
@@ -122,13 +123,20 @@ const FLIXX_ROW_COLORS: Record<string, string> = {
     purple: '#7b1fa2',
 };
 
+const isFirebaseMode = typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_GAME_BACKEND === 'functions';
+
 function AppPane({ paneId, title }: { paneId: string; title: string }) {
     const [session, setSession] = usePaneSession(paneId);
-    const [room, setRoom] = useState<RoomSnapshot | null>(null);
+    const [mockRoom, setMockRoom] = useState<RoomSnapshot | null>(null);
     const [games, setGames] = useState<readonly GameInfo[]>([]);
     const [message, setMessage] = useState<string>('');
     const [joinCode, setJoinCode] = useState(session.code);
     const [loading, setLoading] = useState(false);
+
+    // In Firebase mode, use real-time listeners; in mock mode, use polling
+    const firebaseRoom = useFirebaseRoom(isFirebaseMode ? session.code : '');
+    const room = isFirebaseMode ? firebaseRoom : mockRoom;
+    const setRoom = isFirebaseMode ? (() => {}) : setMockRoom;
 
     // Error auto-dismiss timer
     const errorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -160,17 +168,18 @@ function AppPane({ paneId, title }: { paneId: string; title: string }) {
         }
     }, [doGetGames, session.playerId]);
 
-    // Refresh room state from the backend
+    // Refresh room state from the backend (mock mode only)
     const refreshRoom = useCallback(async (code: string) => {
+        if (isFirebaseMode) return; // Firebase mode uses real-time listeners
         if (!code) {
-            setRoom(null);
+            setMockRoom(null);
             return;
         }
         try {
             const snapshot = await doGetRoom(code as GameCode);
-            setRoom(snapshot);
+            setMockRoom(snapshot);
         } catch {
-            setRoom(null);
+            setMockRoom(null);
         }
     }, [doGetRoom]);
 
@@ -180,15 +189,18 @@ function AppPane({ paneId, title }: { paneId: string; title: string }) {
     }, [refreshGames]);
 
     useEffect(() => {
-        void refreshRoom(session.code);
+        if (!isFirebaseMode) {
+            void refreshRoom(session.code);
+        }
     }, [session.code, refreshRoom]);
 
-    // Poll room state every 2s while in a game (so other pane's actions show up)
+    // Poll room state every 500ms in mock mode (just a Ref read, basically free)
     useEffect(() => {
+        if (isFirebaseMode) return; // Firebase mode uses real-time listeners
         if (!session.code) return;
         const interval = setInterval(() => {
             void refreshRoom(session.code);
-        }, 2000);
+        }, 500);
         return () => clearInterval(interval);
     }, [session.code, refreshRoom]);
 
@@ -249,7 +261,7 @@ function AppPane({ paneId, title }: { paneId: string; title: string }) {
         setSession(current => ({ ...current, code: '' }));
         setJoinCode('');
         setMessage('');
-        setRoom(null);
+        setMockRoom(null);
     }
 
     return (
@@ -875,7 +887,7 @@ function FlixxView({
 export function App() {
     const splitScreen = useAtomValue(splitScreenAtom);
     const setSplitScreen = useAtomSet(splitScreenAtom);
-    const backendMode = typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_BACKEND === 'firebase' ? 'firebase' : 'mock';
+    const backendMode = isFirebaseMode ? 'firebase' : 'mock';
 
     return (
         <main className="app-shell">

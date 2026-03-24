@@ -36,5 +36,4 @@ export const getGames = wrapHandler(handlers.getGamesHandler)
 export const startGame = wrapHandler(handlers.startGameHandler)
 export const sendEvent = wrapHandler(handlers.sendEventHandler)
 export const nextRound = wrapHandler(handlers.nextRoundHandler)
-export const getGameState = wrapHandler(handlers.getGameStateHandler)
-export const getLobby = wrapHandler(handlers.getLobbyHandler)
+// getGameState and getLobby removed — replaced by Firebase RTDB real-time listeners
