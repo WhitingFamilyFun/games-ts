@@ -26,6 +26,7 @@ import {
 import { GameRegistry } from "@games/game-engine"
 import { Database } from "./db.js"
 import { generateGameCode, normalizeFirebaseState, sanitizeForFirebase } from "./utils.js"
+import { recordStats } from "./stats.js"
 
 // --- createGame ---
 
@@ -198,6 +199,23 @@ export const sendEventHandler = (body: unknown) =>
     const newState = yield* gameFns.next(gameState, config, req.playerID, req.event)
 
     yield* db.set(`games/${req.code}/state`, sanitizeForFirebase(newState))
+
+    // Check if round just ended and record stats
+    const wasRoundOver = gameFns.isRoundOver(gameState)
+    const isNowRoundOver = gameFns.isRoundOver(newState)
+    if (!wasRoundOver && isNowRoundOver && gameFns.onRoundEnd) {
+      const entries = gameFns.onRoundEnd(gameState, newState, config)
+      yield* recordStats(entries)
+    }
+
+    // Check if game just ended and record stats
+    const wasGameOver = gameFns.isGameOver(gameState, config)
+    const isNowGameOver = gameFns.isGameOver(newState, config)
+    if (!wasGameOver && isNowGameOver && gameFns.onGameEnd) {
+      const entries = gameFns.onGameEnd(newState, config)
+      yield* recordStats(entries)
+    }
+
     return { state: newState }
   })
 
