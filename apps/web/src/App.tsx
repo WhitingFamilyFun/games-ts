@@ -1065,7 +1065,7 @@ function FireworksView({
             {/* Actions */}
             <div className="actions">
                 {isHintForMe && !roundOver ? (
-                    <button onClick={() => void sendEvent({ kind: 'sawHint' })} disabled={loading}>
+                    <button onClick={() => void sendEvent({ kind: 'fw_sawHint' })} disabled={loading}>
                         Acknowledge Hint
                     </button>
                 ) : null}
@@ -1099,7 +1099,7 @@ function FireworksView({
                                 >{c}</button>
                             ))}
                             <button
-                                onClick={() => void sendEvent({ kind: 'infoColor', color: hintColor, hintFor: hintTarget as PlayerId })}
+                                onClick={() => void sendEvent({ kind: 'fw_infoColor', color: hintColor, hintFor: hintTarget as PlayerId })}
                                 disabled={!hintTarget || game.numClocks <= 0 || loading}
                             >Hint Color</button>
                         </div>
@@ -1115,7 +1115,7 @@ function FireworksView({
                                 >{n}</button>
                             ))}
                             <button
-                                onClick={() => void sendEvent({ kind: 'infoNumber', number: hintNumber, hintFor: hintTarget as PlayerId })}
+                                onClick={() => void sendEvent({ kind: 'fw_infoNumber', number: hintNumber, hintFor: hintTarget as PlayerId })}
                                 disabled={!hintTarget || game.numClocks <= 0 || loading}
                             >Hint Number</button>
                         </div>
@@ -1157,7 +1157,7 @@ function FireworksView({
                                         style={{ padding: '0.3rem 0.5rem', fontSize: '0.8rem', minHeight: 'auto' }}
                                         onClick={() => {
                                             const card = game.fireworksPlayers[ownIndex]?.cards[cardIdx];
-                                            if (card) void sendEvent({ kind: 'play', card });
+                                            if (card) void sendEvent({ kind: 'fw_play', card });
                                         }}
                                         disabled={!isMyTurn || isHintPending || roundOver || loading}
                                     >Play</button>
@@ -1166,7 +1166,7 @@ function FireworksView({
                                         style={{ padding: '0.3rem 0.5rem', fontSize: '0.8rem', minHeight: 'auto' }}
                                         onClick={() => {
                                             const card = game.fireworksPlayers[ownIndex]?.cards[cardIdx];
-                                            if (card) void sendEvent({ kind: 'discard', card });
+                                            if (card) void sendEvent({ kind: 'fw_discard', card });
                                         }}
                                         disabled={!isMyTurn || isHintPending || roundOver || loading}
                                     >Discard</button>
@@ -1306,7 +1306,7 @@ function GlumView({
         if (selectedIndices.size === 0) return;
         const cards = Array.from(selectedIndices).map(i => sortedHand[i]!);
         setSelectedIndices(new Set());
-        void sendEvent({ kind: 'playSet', glumSet: { cards, declaredValue: null } });
+        void sendEvent({ kind: 'glum_playSet', glumSet: { cards, declaredValue: null } });
     }
 
     // Top of pile
@@ -1377,7 +1377,7 @@ function GlumView({
                 <button onClick={playSelectedCards} disabled={!isMyTurn || selectedIndices.size === 0 || roundOver || loading}>
                     Play {selectedIndices.size > 0 ? `(${selectedIndices.size})` : 'Cards'}
                 </button>
-                <button className="btn-secondary" onClick={() => void sendEvent({ kind: 'pass' })} disabled={!isMyTurn || !topSet || roundOver || loading}>
+                <button className="btn-secondary" onClick={() => void sendEvent({ kind: 'glum_pass' })} disabled={!isMyTurn || !topSet || roundOver || loading}>
                     Pass
                 </button>
                 <button className="btn-secondary" onClick={() => void onAction(() => onNextRound())} disabled={!roundOver || loading}>

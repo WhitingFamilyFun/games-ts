@@ -139,7 +139,7 @@ describe("Glum playSet", () => {
     const game = gameWithHands(hands)
 
     const next = applyEvent(game, "p0", {
-      kind: "playSet",
+      kind: "glum_playSet",
       glumSet: makeSet([card("seven"), card("seven")]),
     })
 
@@ -162,13 +162,13 @@ describe("Glum playSet", () => {
 
     // p0 plays a pair
     game = applyEvent(game, "p0", {
-      kind: "playSet",
+      kind: "glum_playSet",
       glumSet: makeSet([card("seven"), card("seven")]),
     })
 
     // p1 tries to play three cards (wrong size)
     const exit = applyEventEither(game, "p1", {
-      kind: "playSet",
+      kind: "glum_playSet",
       glumSet: makeSet([card("eight"), card("eight"), card("eight")]),
     })
     expect(exit._tag).toBe("Failure")
@@ -184,13 +184,13 @@ describe("Glum playSet", () => {
 
     // p0 plays pair of eights
     game = applyEvent(game, "p0", {
-      kind: "playSet",
+      kind: "glum_playSet",
       glumSet: makeSet([card("eight"), card("eight")]),
     })
 
     // p1 tries to play pair of sevens (lower)
     const exit = applyEventEither(game, "p1", {
-      kind: "playSet",
+      kind: "glum_playSet",
       glumSet: makeSet([card("seven"), card("seven")]),
     })
     expect(exit._tag).toBe("Failure")
@@ -205,12 +205,12 @@ describe("Glum playSet", () => {
     let game = gameWithHands(hands)
 
     game = applyEvent(game, "p0", {
-      kind: "playSet",
+      kind: "glum_playSet",
       glumSet: makeSet([card("eight"), card("eight")]),
     })
 
     const exit = applyEventEither(game, "p1", {
-      kind: "playSet",
+      kind: "glum_playSet",
       glumSet: makeSet([card("eight", "hearts"), card("eight", "hearts")]),
     })
     expect(exit._tag).toBe("Failure")
@@ -225,7 +225,7 @@ describe("Glum playSet", () => {
     const game = gameWithHands(hands)
 
     const exit = applyEventEither(game, "p0", {
-      kind: "playSet",
+      kind: "glum_playSet",
       glumSet: makeSet([card("ace"), card("ace")]),
     })
     expect(exit._tag).toBe("Failure")
@@ -240,7 +240,7 @@ describe("Glum playSet", () => {
     const game = gameWithHands(hands)
 
     const exit = applyEventEither(game, "p0", {
-      kind: "playSet",
+      kind: "glum_playSet",
       glumSet: makeSet([card("seven"), card("eight")]),
     })
     expect(exit._tag).toBe("Failure")
@@ -255,7 +255,7 @@ describe("Glum playSet", () => {
     const game = gameWithHands(hands)
 
     const next = applyEvent(game, "p0", {
-      kind: "playSet",
+      kind: "glum_playSet",
       glumSet: makeSet([card("seven"), joker()]),
     })
 
@@ -272,7 +272,7 @@ describe("Glum playSet", () => {
     const game = gameWithHands(hands)
 
     const next = applyEvent(game, "p0", {
-      kind: "playSet",
+      kind: "glum_playSet",
       glumSet: makeSet([joker(), joker()], card("five")),
     })
 
@@ -289,7 +289,7 @@ describe("Glum playSet", () => {
     const game = gameWithHands(hands)
 
     const next = applyEvent(game, "p0", {
-      kind: "playSet",
+      kind: "glum_playSet",
       glumSet: makeSet([card("seven"), card("seven")]),
     })
 
@@ -309,12 +309,12 @@ describe("Glum pass", () => {
 
     // p0 plays a pair
     game = applyEvent(game, "p0", {
-      kind: "playSet",
+      kind: "glum_playSet",
       glumSet: makeSet([card("seven"), card("seven")]),
     })
 
     // p1 passes
-    const next = applyEvent(game, "p1", { kind: "pass" })
+    const next = applyEvent(game, "p1", { kind: "glum_pass" })
     expect(next.glumPlayers[1]!.passed).toBe(true)
     // Turn should advance to p2
     expect(next.currentPlayerIndex).toBe(2)
@@ -322,7 +322,7 @@ describe("Glum pass", () => {
 
   it("cannot pass on an empty pile", () => {
     const game = initGame(3)
-    const exit = applyEventEither(game, "p0", { kind: "pass" })
+    const exit = applyEventEither(game, "p0", { kind: "glum_pass" })
     expect(exit._tag).toBe("Failure")
   })
 })
@@ -338,15 +338,15 @@ describe("Glum play round reset", () => {
 
     // p0 plays a pair of sevens
     game = applyEvent(game, "p0", {
-      kind: "playSet",
+      kind: "glum_playSet",
       glumSet: makeSet([card("seven"), card("seven")]),
     })
 
     // p1 passes
-    game = applyEvent(game, "p1", { kind: "pass" })
+    game = applyEvent(game, "p1", { kind: "glum_pass" })
 
     // p2 passes — now only p0 is active, should reset
-    game = applyEvent(game, "p2", { kind: "pass" })
+    game = applyEvent(game, "p2", { kind: "glum_pass" })
 
     // Pile should be cleared
     expect(game.pile.sets).toHaveLength(0)
@@ -369,22 +369,22 @@ describe("Glum play round reset", () => {
 
     // p0 plays pair of sevens and goes out
     game = applyEvent(game, "p0", {
-      kind: "playSet",
+      kind: "glum_playSet",
       glumSet: makeSet([card("seven"), card("seven")]),
     })
     expect(game.outIndex).toContain(0)
 
     // p1 plays pair of nines
     game = applyEvent(game, "p1", {
-      kind: "playSet",
+      kind: "glum_playSet",
       glumSet: makeSet([card("nine"), card("nine")]),
     })
 
     // p2 passes
-    game = applyEvent(game, "p2", { kind: "pass" })
+    game = applyEvent(game, "p2", { kind: "glum_pass" })
 
     // p3 passes — p0 is out, p2 & p3 passed, only p1 active → reset
-    game = applyEvent(game, "p3", { kind: "pass" })
+    game = applyEvent(game, "p3", { kind: "glum_pass" })
 
     expect(game.pile.sets).toHaveLength(0)
     // p1 should lead
@@ -430,7 +430,7 @@ describe("Glum turn validation", () => {
     const game = initGame(3)
     // p1 tries to play on p0's turn
     const exit = applyEventEither(game, "p1", {
-      kind: "playSet",
+      kind: "glum_playSet",
       glumSet: makeSet([card("seven")]),
     })
     expect(exit._tag).toBe("Failure")
@@ -445,7 +445,7 @@ describe("Glum turn validation", () => {
     const game = { ...gameWithHands(hands), currentPlayerIndex: 1 }
 
     const exit = applyEventEither(game, "p1", {
-      kind: "playSet",
+      kind: "glum_playSet",
       glumSet: makeSet([card("eight")]),
     })
     expect(exit._tag).toBe("Failure")
@@ -559,16 +559,16 @@ describe("Glum turn skipping", () => {
 
     // p0 plays
     game = applyEvent(game, "p0", {
-      kind: "playSet",
+      kind: "glum_playSet",
       glumSet: makeSet([card("seven"), card("seven")]),
     })
 
     // p1 passes
-    game = applyEvent(game, "p1", { kind: "pass" })
+    game = applyEvent(game, "p1", { kind: "glum_pass" })
 
     // p2 plays higher
     game = applyEvent(game, "p2", {
-      kind: "playSet",
+      kind: "glum_playSet",
       glumSet: makeSet([card("nine"), card("nine")]),
     })
 
@@ -577,7 +577,7 @@ describe("Glum turn skipping", () => {
     expect(game.currentPlayerIndex).toBe(3)
 
     // p3 passes
-    game = applyEvent(game, "p3", { kind: "pass" })
+    game = applyEvent(game, "p3", { kind: "glum_pass" })
 
     // Turn should skip p1 (passed) and go to p0... but p0 must be checked
     // Actually after p3 passes: p0 is active, p1 passed, p2 active, p3 passed
@@ -596,22 +596,22 @@ describe("Glum turn skipping", () => {
 
     // p0 plays and goes out
     game = applyEvent(game, "p0", {
-      kind: "playSet",
+      kind: "glum_playSet",
       glumSet: makeSet([card("seven"), card("seven")]),
     })
     expect(game.outIndex).toContain(0)
 
     // p1 plays higher
     game = applyEvent(game, "p1", {
-      kind: "playSet",
+      kind: "glum_playSet",
       glumSet: makeSet([card("nine"), card("nine")]),
     })
 
     // p2 passes
-    game = applyEvent(game, "p2", { kind: "pass" })
+    game = applyEvent(game, "p2", { kind: "glum_pass" })
 
     // p3 passes — p0 out, p2 & p3 passed, only p1 active → reset
-    game = applyEvent(game, "p3", { kind: "pass" })
+    game = applyEvent(game, "p3", { kind: "glum_pass" })
 
     // After reset, p1 leads (p0 is out, so skip p0)
     expect(game.currentPlayerIndex).toBe(1)

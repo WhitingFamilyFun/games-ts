@@ -73,43 +73,43 @@ describe("FireworksDeck", () => {
 
 describe("FireworksEvent discriminated union", () => {
   it("decodes play event", () => {
-    const e = Schema.decodeUnknownSync(FireworksEvent)({ kind: "play", card: { color: "red", number: 1 } })
-    expect(e.kind).toBe("play")
-    if (e.kind === "play") {
+    const e = Schema.decodeUnknownSync(FireworksEvent)({ kind: "fw_play", card: { color: "red", number: 1 } })
+    expect(e.kind).toBe("fw_play")
+    if (e.kind === "fw_play") {
       expect(e.card.color).toBe("red")
       expect(e.card.number).toBe(1)
     }
   })
 
   it("decodes discard event", () => {
-    const e = Schema.decodeUnknownSync(FireworksEvent)({ kind: "discard", card: { color: "blue", number: 3 } })
-    expect(e.kind).toBe("discard")
-    if (e.kind === "discard") {
+    const e = Schema.decodeUnknownSync(FireworksEvent)({ kind: "fw_discard", card: { color: "blue", number: 3 } })
+    expect(e.kind).toBe("fw_discard")
+    if (e.kind === "fw_discard") {
       expect(e.card.color).toBe("blue")
     }
   })
 
   it("decodes infoColor event", () => {
-    const e = Schema.decodeUnknownSync(FireworksEvent)({ kind: "infoColor", color: "green", hintFor: "p2" })
-    expect(e.kind).toBe("infoColor")
-    if (e.kind === "infoColor") {
+    const e = Schema.decodeUnknownSync(FireworksEvent)({ kind: "fw_infoColor", color: "green", hintFor: "p2" })
+    expect(e.kind).toBe("fw_infoColor")
+    if (e.kind === "fw_infoColor") {
       expect(e.color).toBe("green")
       expect(e.hintFor).toBe("p2")
     }
   })
 
   it("decodes infoNumber event", () => {
-    const e = Schema.decodeUnknownSync(FireworksEvent)({ kind: "infoNumber", number: 4, hintFor: "p3" })
-    expect(e.kind).toBe("infoNumber")
-    if (e.kind === "infoNumber") {
+    const e = Schema.decodeUnknownSync(FireworksEvent)({ kind: "fw_infoNumber", number: 4, hintFor: "p3" })
+    expect(e.kind).toBe("fw_infoNumber")
+    if (e.kind === "fw_infoNumber") {
       expect(e.number).toBe(4)
       expect(e.hintFor).toBe("p3")
     }
   })
 
   it("decodes sawHint event", () => {
-    const e = Schema.decodeUnknownSync(FireworksEvent)({ kind: "sawHint" })
-    expect(e.kind).toBe("sawHint")
+    const e = Schema.decodeUnknownSync(FireworksEvent)({ kind: "fw_sawHint" })
+    expect(e.kind).toBe("fw_sawHint")
   })
 
   it("rejects unknown event kind", () => {
@@ -117,14 +117,14 @@ describe("FireworksEvent discriminated union", () => {
   })
 
   it("round-trips play event", () => {
-    const raw = { kind: "play" as const, card: { color: "yellow" as const, number: 2 } }
+    const raw = { kind: "fw_play" as const, card: { color: "yellow" as const, number: 2 } }
     const decoded = Schema.decodeUnknownSync(FireworksPlayEvent)(raw)
     const encoded = Schema.encodeSync(FireworksPlayEvent)(decoded)
     expect(encoded).toEqual(raw)
   })
 
   it("round-trips infoColor event", () => {
-    const raw = { kind: "infoColor" as const, color: "white" as const, hintFor: "p1" }
+    const raw = { kind: "fw_infoColor" as const, color: "white" as const, hintFor: "p1" }
     const decoded = Schema.decodeUnknownSync(FireworksInfoColorEvent)(raw)
     const encoded = Schema.encodeSync(FireworksInfoColorEvent)(decoded)
     expect(encoded).toEqual(raw)

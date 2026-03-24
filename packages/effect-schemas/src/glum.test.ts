@@ -145,28 +145,28 @@ describe("GlumPlayer", () => {
 describe("GlumEvent discriminated union", () => {
   it("decodes playSet event", () => {
     const e = Schema.decodeUnknownSync(GlumEvent)({
-      kind: "playSet",
+      kind: "glum_playSet",
       glumSet: { cards: [{ kind: "normal", suit: "spades", value: "ten" }] },
     })
-    expect(e.kind).toBe("playSet")
-    if (e.kind === "playSet") {
+    expect(e.kind).toBe("glum_playSet")
+    if (e.kind === "glum_playSet") {
       expect(e.glumSet.cards).toHaveLength(1)
     }
   })
 
   it("decodes pass event", () => {
-    const e = Schema.decodeUnknownSync(GlumEvent)({ kind: "pass" })
-    expect(e.kind).toBe("pass")
+    const e = Schema.decodeUnknownSync(GlumEvent)({ kind: "glum_pass" })
+    expect(e.kind).toBe("glum_pass")
   })
 
   it("decodes give event", () => {
     const e = Schema.decodeUnknownSync(GlumEvent)({
-      kind: "give",
+      kind: "glum_give",
       toPlayer: "p2",
       cards: [{ kind: "normal", suit: "hearts", value: "two" }],
     })
-    expect(e.kind).toBe("give")
-    if (e.kind === "give") {
+    expect(e.kind).toBe("glum_give")
+    if (e.kind === "glum_give") {
       expect(e.toPlayer).toBe("p2")
       expect(e.cards).toHaveLength(1)
     }
@@ -178,7 +178,7 @@ describe("GlumEvent discriminated union", () => {
 
   it("round-trips playSet event", () => {
     const raw = {
-      kind: "playSet" as const,
+      kind: "glum_playSet" as const,
       glumSet: {
         cards: [{ kind: "normal" as const, suit: "diamonds" as const, value: "jack" as const }],
         declaredValue: null,
@@ -186,11 +186,11 @@ describe("GlumEvent discriminated union", () => {
     }
     const decoded = Schema.decodeUnknownSync(GlumPlaySetEvent)(raw)
     const encoded = Schema.encodeSync(GlumPlaySetEvent)(decoded)
-    expect((encoded as typeof decoded).kind).toBe("playSet")
+    expect((encoded as typeof decoded).kind).toBe("glum_playSet")
   })
 
   it("round-trips pass event", () => {
-    const raw = { kind: "pass" as const }
+    const raw = { kind: "glum_pass" as const }
     const decoded = Schema.decodeUnknownSync(GlumPassEvent)(raw)
     const encoded = Schema.encodeSync(GlumPassEvent)(decoded)
     expect(encoded).toEqual(raw)
@@ -198,13 +198,13 @@ describe("GlumEvent discriminated union", () => {
 
   it("round-trips give event", () => {
     const raw = {
-      kind: "give" as const,
+      kind: "glum_give" as const,
       toPlayer: "p3" as const,
       cards: [{ kind: "joker" as const }],
     }
     const decoded = Schema.decodeUnknownSync(GlumGiveEvent)(raw)
     const encoded = Schema.encodeSync(GlumGiveEvent)(decoded)
-    expect((encoded as typeof decoded).kind).toBe("give")
+    expect((encoded as typeof decoded).kind).toBe("glum_give")
     expect((encoded as typeof decoded).toPlayer).toBe("p3")
   })
 })

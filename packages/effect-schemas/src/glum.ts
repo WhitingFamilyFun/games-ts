@@ -39,14 +39,14 @@ export type GlumPlayer = typeof GlumPlayer.Type
 
 // Events - discriminated on `kind`
 export const GlumPlaySetEvent = Schema.Struct({
-  kind: Schema.Literal("playSet"),
+  kind: Schema.Literal("glum_playSet"),
   glumSet: GlumSet,
 })
 export const GlumPassEvent = Schema.Struct({
-  kind: Schema.Literal("pass"),
+  kind: Schema.Literal("glum_pass"),
 })
 export const GlumGiveEvent = Schema.Struct({
-  kind: Schema.Literal("give"),
+  kind: Schema.Literal("glum_give"),
   toPlayer: PlayerId,
   cards: Schema.Array(FaceCard),
 })

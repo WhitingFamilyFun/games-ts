@@ -314,8 +314,8 @@ function nextFireworks(
       return yield* Effect.fail(new InvalidMove({ message: "Player not found", playerId }))
     }
 
-    // sawHint: only the hintForPlayer can act
-    if (event.kind === "sawHint") {
+    // fw_sawHint: only the hintForPlayer can act
+    if (event.kind === "fw_sawHint") {
       return yield* handleSawHint(state, playerId)
     }
 
@@ -335,13 +335,13 @@ function nextFireworks(
     }
 
     switch (event.kind) {
-      case "play":
+      case "fw_play":
         return yield* handlePlay(state, playerIdx, playerId, event.card)
-      case "discard":
+      case "fw_discard":
         return yield* handleDiscard(state, playerIdx, playerId, event.card)
-      case "infoColor":
+      case "fw_infoColor":
         return yield* handleInfoColor(state, playerIdx, playerId, event.color, event.hintFor)
-      case "infoNumber":
+      case "fw_infoNumber":
         return yield* handleInfoNumber(state, playerIdx, playerId, event.number, event.hintFor)
     }
   })

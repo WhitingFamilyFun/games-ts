@@ -130,7 +130,7 @@ describe("Fireworks play event", () => {
       }
     }
     const cardToPlay = game.fireworksPlayers[0]!.cards.find(c => c.number === 1)!
-    const next = applyEvent(game, "p0", { kind: "play", card: cardToPlay })
+    const next = applyEvent(game, "p0", { kind: "fw_play", card: cardToPlay })
     expect(next.fireworks[cardToPlay.color]).toBe(1)
     // Turn advances to player 1
     expect(next.currentPlayerIndex).toBe(1)
@@ -146,7 +146,7 @@ describe("Fireworks play event", () => {
         game.fireworksPlayers[1]!,
       ],
     }
-    const next = applyEvent(game, "p0", { kind: "play", card: { color: "red", number: 3 } })
+    const next = applyEvent(game, "p0", { kind: "fw_play", card: { color: "red", number: 3 } })
     expect(next.numFuses).toBe(2)
     expect(next.fireworks.red).toBe(0)
     // Card should be in discard
@@ -164,7 +164,7 @@ describe("Fireworks play event", () => {
     }
     const handSizeBefore = game.fireworksPlayers[0]!.cards.length
     const drawSizeBefore = game.drawPile.cards.length
-    const next = applyEvent(game, "p0", { kind: "play", card: { color: "red", number: 1 } })
+    const next = applyEvent(game, "p0", { kind: "fw_play", card: { color: "red", number: 1 } })
     // Hand size stays the same (removed one, drew one)
     expect(next.fireworksPlayers[0]!.cards.length).toBe(handSizeBefore)
     expect(next.drawPile.cards.length).toBe(drawSizeBefore - 1)
@@ -181,7 +181,7 @@ describe("Fireworks play event", () => {
         game.fireworksPlayers[1]!,
       ],
     }
-    const next = applyEvent(game, "p0", { kind: "play", card: { color: "red", number: 5 } })
+    const next = applyEvent(game, "p0", { kind: "fw_play", card: { color: "red", number: 5 } })
     expect(next.fireworks.red).toBe(5)
     expect(next.numClocks).toBe(7)
   })
@@ -192,7 +192,7 @@ describe("Fireworks discard event", () => {
     let game = initGame(2)
     game = { ...game, numClocks: 5 }
     const card = game.fireworksPlayers[0]!.cards[0]!
-    const next = applyEvent(game, "p0", { kind: "discard", card })
+    const next = applyEvent(game, "p0", { kind: "fw_discard", card })
     expect(next.numClocks).toBe(6)
     expect(next.discardPile.cards).toContainEqual(card)
     expect(next.currentPlayerIndex).toBe(1)
@@ -202,7 +202,7 @@ describe("Fireworks discard event", () => {
     const game = initGame(2)
     const card = game.fireworksPlayers[0]!.cards[0]!
     const drawBefore = game.drawPile.cards.length
-    const next = applyEvent(game, "p0", { kind: "discard", card })
+    const next = applyEvent(game, "p0", { kind: "fw_discard", card })
     expect(next.drawPile.cards.length).toBe(drawBefore - 1)
     // Hand size stays the same
     expect(next.fireworksPlayers[0]!.cards.length).toBe(game.fireworksPlayers[0]!.cards.length)
@@ -212,7 +212,7 @@ describe("Fireworks discard event", () => {
     let game = initGame(2)
     game = { ...game, numClocks: 8 }
     const card = game.fireworksPlayers[0]!.cards[0]!
-    const next = applyEvent(game, "p0", { kind: "discard", card })
+    const next = applyEvent(game, "p0", { kind: "fw_discard", card })
     expect(next.numClocks).toBe(8)
   })
 })
@@ -220,7 +220,7 @@ describe("Fireworks discard event", () => {
 describe("Fireworks hint events", () => {
   it("infoColor decreases clocks and sets hint state", () => {
     const game = initGame(2)
-    const next = applyEvent(game, "p0", { kind: "infoColor", color: "red", hintFor: "p1" as PlayerId })
+    const next = applyEvent(game, "p0", { kind: "fw_infoColor", color: "red", hintFor: "p1" as PlayerId })
     expect(next.numClocks).toBe(7)
     expect(next.showColor).toBe("red")
     expect(next.showNumber).toBeNull()
@@ -232,7 +232,7 @@ describe("Fireworks hint events", () => {
 
   it("infoNumber decreases clocks and sets hint state", () => {
     const game = initGame(2)
-    const next = applyEvent(game, "p0", { kind: "infoNumber", number: 3, hintFor: "p1" as PlayerId })
+    const next = applyEvent(game, "p0", { kind: "fw_infoNumber", number: 3, hintFor: "p1" as PlayerId })
     expect(next.numClocks).toBe(7)
     expect(next.showNumber).toBe(3)
     expect(next.showColor).toBeNull()
@@ -242,13 +242,13 @@ describe("Fireworks hint events", () => {
   it("hint fails when no clocks remain", () => {
     let game = initGame(2)
     game = { ...game, numClocks: 0 }
-    const exit = applyEventEither(game, "p0", { kind: "infoColor", color: "red", hintFor: "p1" as PlayerId })
+    const exit = applyEventEither(game, "p0", { kind: "fw_infoColor", color: "red", hintFor: "p1" as PlayerId })
     expect(exit._tag).toBe("Failure")
   })
 
   it("cannot hint yourself", () => {
     const game = initGame(2)
-    const exit = applyEventEither(game, "p0", { kind: "infoColor", color: "red", hintFor: "p0" as PlayerId })
+    const exit = applyEventEither(game, "p0", { kind: "fw_infoColor", color: "red", hintFor: "p0" as PlayerId })
     expect(exit._tag).toBe("Failure")
   })
 })
@@ -256,8 +256,8 @@ describe("Fireworks hint events", () => {
 describe("Fireworks sawHint event", () => {
   it("clears hint and advances turn", () => {
     const game = initGame(2)
-    const hinted = applyEvent(game, "p0", { kind: "infoColor", color: "red", hintFor: "p1" as PlayerId })
-    const next = applyEvent(hinted, "p1", { kind: "sawHint" })
+    const hinted = applyEvent(game, "p0", { kind: "fw_infoColor", color: "red", hintFor: "p1" as PlayerId })
+    const next = applyEvent(hinted, "p1", { kind: "fw_sawHint" })
     expect(next.showColor).toBeNull()
     expect(next.showNumber).toBeNull()
     expect(next.hintForPlayer).toBeNull()
@@ -267,8 +267,8 @@ describe("Fireworks sawHint event", () => {
 
   it("wrong player cannot acknowledge hint", () => {
     const game = initGame(3)
-    const hinted = applyEvent(game, "p0", { kind: "infoColor", color: "red", hintFor: "p1" as PlayerId })
-    const exit = applyEventEither(hinted, "p2", { kind: "sawHint" })
+    const hinted = applyEvent(game, "p0", { kind: "fw_infoColor", color: "red", hintFor: "p1" as PlayerId })
+    const exit = applyEventEither(hinted, "p2", { kind: "fw_sawHint" })
     expect(exit._tag).toBe("Failure")
   })
 })
@@ -299,15 +299,15 @@ describe("Fireworks turn validation", () => {
     const game = initGame(2)
     // p1 tries to play on p0's turn
     const card = game.fireworksPlayers[1]!.cards[0]!
-    const exit = applyEventEither(game, "p1", { kind: "play", card })
+    const exit = applyEventEither(game, "p1", { kind: "fw_play", card })
     expect(exit._tag).toBe("Failure")
   })
 
   it("cannot make a regular move while hint is pending", () => {
     const game = initGame(2)
-    const hinted = applyEvent(game, "p0", { kind: "infoColor", color: "red", hintFor: "p1" as PlayerId })
+    const hinted = applyEvent(game, "p0", { kind: "fw_infoColor", color: "red", hintFor: "p1" as PlayerId })
     const card = hinted.fireworksPlayers[0]!.cards[0]!
-    const exit = applyEventEither(hinted, "p0", { kind: "play", card })
+    const exit = applyEventEither(hinted, "p0", { kind: "fw_play", card })
     expect(exit._tag).toBe("Failure")
   })
 
@@ -315,7 +315,7 @@ describe("Fireworks turn validation", () => {
     let game = initGame(2)
     game = { ...game, numFuses: 0 }
     const card = game.fireworksPlayers[0]!.cards[0]!
-    const exit = applyEventEither(game, "p0", { kind: "play", card })
+    const exit = applyEventEither(game, "p0", { kind: "fw_play", card })
     expect(exit._tag).toBe("Failure")
   })
 })

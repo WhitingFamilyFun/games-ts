@@ -22,25 +22,25 @@ export type FireworksPlayer = typeof FireworksPlayer.Type
 
 // Events - discriminated on `kind`
 export const FireworksPlayEvent = Schema.Struct({
-  kind: Schema.Literal("play"),
+  kind: Schema.Literal("fw_play"),
   card: FireworksCard,
 })
 export const FireworksDiscardEvent = Schema.Struct({
-  kind: Schema.Literal("discard"),
+  kind: Schema.Literal("fw_discard"),
   card: FireworksCard,
 })
 export const FireworksInfoColorEvent = Schema.Struct({
-  kind: Schema.Literal("infoColor"),
+  kind: Schema.Literal("fw_infoColor"),
   color: FireworkColor,
   hintFor: PlayerId,
 })
 export const FireworksInfoNumberEvent = Schema.Struct({
-  kind: Schema.Literal("infoNumber"),
+  kind: Schema.Literal("fw_infoNumber"),
   number: Schema.Number,
   hintFor: PlayerId,
 })
 export const FireworksSawHintEvent = Schema.Struct({
-  kind: Schema.Literal("sawHint"),
+  kind: Schema.Literal("fw_sawHint"),
 })
 
 export const FireworksEvent = Schema.Union(

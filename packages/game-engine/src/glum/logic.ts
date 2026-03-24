@@ -214,7 +214,7 @@ function nextGlum(
     }
 
     // Give event doesn't require it to be your turn
-    if (event.kind === "give") {
+    if (event.kind === "glum_give") {
       return yield* handleGive(state, playerIdx, playerId, event.toPlayer, event.cards)
     }
 
@@ -228,9 +228,9 @@ function nextGlum(
     }
 
     switch (event.kind) {
-      case "playSet":
+      case "glum_playSet":
         return yield* handlePlaySet(state, playerIdx, playerId, event.glumSet)
-      case "pass":
+      case "glum_pass":
         return yield* handlePass(state, playerIdx, playerId)
     }
   })
