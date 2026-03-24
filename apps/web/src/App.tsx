@@ -38,6 +38,8 @@ import type { CardNum } from '@games/effect-schemas';
 import { useAtomSet, useAtomValue } from '@effect-atom/atom-react';
 import { useCallback, useEffect, useState, useMemo, useRef, type TouchEvent as ReactTouchEvent } from 'react';
 import { splitScreenAtom } from './atoms/session.js';
+import { useAuth } from './lib/useAuth.js';
+import type { User } from 'firebase/auth';
 import {
     createGameAtom,
     joinGameAtom,
@@ -136,8 +138,20 @@ const FLIXX_ROW_COLORS: Record<string, string> = {
 
 const isFirebaseMode = typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_GAME_BACKEND === 'functions';
 
-function AppPane({ paneId, title }: { paneId: string; title: string }) {
-    const [session, setSession] = usePaneSession(paneId);
+function AppPane({ paneId, title, firebaseUser }: { paneId: string; title: string; firebaseUser?: User }) {
+    const [localSession, setLocalSession] = usePaneSession(paneId);
+
+    // In Firebase mode with a user, override playerId and playerName from the auth user
+    const session: PaneSession = firebaseUser
+        ? { playerId: firebaseUser.uid, playerName: firebaseUser.displayName ?? 'Player', code: localSession.code }
+        : localSession;
+    const setSession = firebaseUser
+        ? (updater: (value: PaneSession) => PaneSession) => setLocalSession(current => {
+            const updated = updater({ ...current, playerId: firebaseUser.uid, playerName: firebaseUser.displayName ?? 'Player' });
+            // Only persist the code change; playerId/playerName come from auth
+            return { ...current, code: updated.code };
+        })
+        : setLocalSession;
     const [mockRoom, setMockRoom] = useState<RoomSnapshot | null>(null);
     const [games, setGames] = useState<readonly GameInfo[]>([]);
     const [message, setMessage] = useState<string>('');
@@ -282,14 +296,16 @@ function AppPane({ paneId, title }: { paneId: string; title: string }) {
                 <div className="info-pill">ID {session.playerId.slice(0, 6)}</div>
             </header>
             <div className="pane-body">
-                <label className="stack">
-                    <span className="muted">Display name</span>
-                    <input
-                        value={session.playerName}
-                        onChange={event => setSession(current => ({ ...current, playerName: event.target.value }))}
-                        placeholder="Player name"
-                    />
-                </label>
+                {!firebaseUser && (
+                    <label className="stack">
+                        <span className="muted">Display name</span>
+                        <input
+                            value={session.playerName}
+                            onChange={event => setSession(current => ({ ...current, playerName: event.target.value }))}
+                            placeholder="Player name"
+                        />
+                    </label>
+                )}
 
                 {message ? <div className="error-banner">{message}</div> : null}
 
@@ -1472,6 +1488,40 @@ export function App() {
     const splitScreen = useAtomValue(splitScreenAtom);
     const setSplitScreen = useAtomSet(splitScreenAtom);
     const backendMode = isFirebaseMode ? 'firebase' : 'mock';
+    const { user, loading: authLoading, signInWithGoogle, signOut } = useAuth();
+
+    // In Firebase mode, gate on auth
+    if (isFirebaseMode) {
+        if (authLoading) {
+            return (
+                <main className="app-shell">
+                    <div className="sign-in-screen">
+                        <div className="sign-in-card">
+                            <h1>Whiting Games</h1>
+                            <div className="sign-in-spinner" />
+                            <p className="muted">Checking sign-in status...</p>
+                        </div>
+                    </div>
+                </main>
+            );
+        }
+
+        if (!user) {
+            return (
+                <main className="app-shell">
+                    <div className="sign-in-screen">
+                        <div className="sign-in-card">
+                            <h1>Whiting Games</h1>
+                            <p className="muted">Sign in to play with friends</p>
+                            <button className="google-sign-in-btn" onClick={() => void signInWithGoogle()}>
+                                Sign in with Google
+                            </button>
+                        </div>
+                    </div>
+                </main>
+            );
+        }
+    }
 
     return (
         <main className="app-shell">
@@ -1481,13 +1531,31 @@ export function App() {
                 </div>
                 <div className="actions" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                     <span className="mode-pill">{backendMode}</span>
-                    <button onClick={() => setSplitScreen(current => !current)}>{splitScreen ? 'Single Pane' : 'Split Screen'}</button>
+                    {isFirebaseMode && user ? (
+                        <>
+                            <div className="user-info">
+                                {user.photoURL ? (
+                                    <img className="user-avatar" src={user.photoURL} alt="" referrerPolicy="no-referrer" />
+                                ) : null}
+                                <span className="user-name">{user.displayName ?? 'Player'}</span>
+                            </div>
+                            <button className="btn-secondary" onClick={() => void signOut()}>Sign Out</button>
+                        </>
+                    ) : (
+                        <button onClick={() => setSplitScreen(current => !current)}>{splitScreen ? 'Single Pane' : 'Split Screen'}</button>
+                    )}
                 </div>
             </div>
 
             <div className={`pane-grid${splitScreen ? ' split' : ''}`}>
-                <AppPane paneId="left" title="Pane A" />
-                {splitScreen ? <AppPane paneId="right" title="Pane B" /> : null}
+                {isFirebaseMode && user ? (
+                    <AppPane paneId="left" title="Pane A" firebaseUser={user} />
+                ) : (
+                    <>
+                        <AppPane paneId="left" title="Pane A" />
+                        {splitScreen ? <AppPane paneId="right" title="Pane B" /> : null}
+                    </>
+                )}
             </div>
         </main>
     );
