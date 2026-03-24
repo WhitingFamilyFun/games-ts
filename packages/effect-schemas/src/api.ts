@@ -2,13 +2,14 @@ import { Schema } from "effect"
 import { PlayerId, GameCode, Player, GameConfig, GameStatus } from "./common.js"
 import { FlyloGame, FlyloEvent } from "./flylo.js"
 import { FlixxGame, FlixxEvent } from "./flixx.js"
+import { FireworksGame, FireworksEvent } from "./fireworks.js"
 
-// Discriminated on `type` field ("Flylo" | "Flixx")
-// Both branches have GenericFields, so state.status, state.round, etc. always work
-export const GameState = Schema.Union(FlyloGame, FlixxGame)
+// Discriminated on `type` field ("Flylo" | "Flixx" | "Fireworks")
+// All branches have GenericFields, so state.status, state.round, etc. always work
+export const GameState = Schema.Union(FlyloGame, FlixxGame, FireworksGame)
 export type GameState = typeof GameState.Type
 
-export const GameEvent = Schema.Union(FlyloEvent, FlixxEvent)
+export const GameEvent = Schema.Union(FlyloEvent, FlixxEvent, FireworksEvent)
 export type GameEvent = typeof GameEvent.Type
 
 export const Lobby = Schema.Struct({
