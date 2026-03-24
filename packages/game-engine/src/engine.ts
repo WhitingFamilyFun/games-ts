@@ -2,6 +2,7 @@ import { Effect } from "effect"
 import type {
   GameConfig, GameType, Player, PlayerId,
   GenericFields, InvalidMove, GameError,
+  StatEntry,
 } from "@games/effect-schemas"
 
 /**
@@ -42,6 +43,12 @@ export interface GameFunctions<G extends GenericFields, E> {
 
   /** Check if the entire game is over */
   readonly isGameOver: (state: G, config: GameConfig) => boolean
+
+  /** Generate stat entries when a round ends. Called by backend after detecting round over. */
+  readonly onRoundEnd?: (prevState: G, newState: G, config: GameConfig) => StatEntry[]
+
+  /** Generate stat entries when the game ends. Called by backend after detecting game over. */
+  readonly onGameEnd?: (state: G, config: GameConfig) => StatEntry[]
 }
 
 // --- Game Registry ---

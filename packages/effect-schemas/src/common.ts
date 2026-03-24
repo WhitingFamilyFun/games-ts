@@ -42,3 +42,15 @@ export const GenericFields = Schema.Struct({
   rewards: Schema.optionalWith(Schema.Array(Schema.Number), { default: () => [] as readonly number[] }),
 })
 export type GenericFields = typeof GenericFields.Type
+
+// ---------------------------------------------------------------------------
+// Stats
+// ---------------------------------------------------------------------------
+
+export interface StatEntry {
+  playerId: string  // Firebase UID
+  gameType: string
+  stat: string      // e.g. "flylo_win", "flylo_round_score", "flixx_win"
+  value: number     // score, count increment, etc.
+  metadata?: Record<string, unknown>  // e.g. teammates for fireworks
+}
