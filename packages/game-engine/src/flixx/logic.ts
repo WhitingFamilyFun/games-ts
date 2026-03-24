@@ -17,6 +17,7 @@ import type {
   GameConfig,
   Player,
   PlayerId,
+  StatEntry,
 } from "@games/effect-schemas"
 import { InvalidMove, NotYourTurn, initGenericFields } from "@games/effect-schemas"
 import type { GameFunctions } from "../engine.js"
@@ -449,6 +450,41 @@ export function playerScore(player: FlixxPlayer): number {
 // GameFunctions implementation
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Stat hooks
+// ---------------------------------------------------------------------------
+
+function flixxOnGameEnd(state: FlixxGame, _config: GameConfig): StatEntry[] {
+  const entries: StatEntry[] = []
+  const playerIds = Object.keys(state.flixxPlayers)
+
+  // Find highest scorer
+  let maxScore = -Infinity
+  let winnerId = playerIds[0]!
+  for (const pid of playerIds) {
+    const score = cardCurrentScore(state.flixxPlayers[pid as PlayerId]!.card)
+    if (score > maxScore) {
+      maxScore = score
+      winnerId = pid
+    }
+  }
+
+  for (const pid of playerIds) {
+    const score = cardCurrentScore(state.flixxPlayers[pid as PlayerId]!.card)
+    entries.push({ playerId: pid, gameType: "Flixx", stat: "flixx_game_score", value: score })
+
+    if (pid === winnerId) {
+      entries.push({ playerId: pid, gameType: "Flixx", stat: "flixx_win", value: 1 })
+    }
+  }
+
+  return entries
+}
+
+// ---------------------------------------------------------------------------
+// GameFunctions implementation
+// ---------------------------------------------------------------------------
+
 export const flixxFunctions: GameFunctions<FlixxGame, FlixxEvent> = {
   gameType: "Flixx",
 
@@ -464,4 +500,6 @@ export const flixxFunctions: GameFunctions<FlixxGame, FlixxEvent> = {
   isRoundOver: (state) => isRoundOverFlixx(state),
 
   isGameOver: (state) => isGameOverFlixx(state),
+
+  onGameEnd: flixxOnGameEnd,
 }

@@ -14,6 +14,7 @@ import type {
   GameConfig,
   Player,
   PlayerId,
+  StatEntry,
 } from "@games/effect-schemas"
 import { InvalidMove, NotYourTurn, initGenericFields } from "@games/effect-schemas"
 import type { GameFunctions } from "../engine.js"
@@ -482,6 +483,35 @@ export function glumScore(state: GlumGame): number[] {
 // GameFunctions implementation
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Stat hooks
+// ---------------------------------------------------------------------------
+
+function glumOnRoundEnd(_prevState: GlumGame, newState: GlumGame, _config: GameConfig): StatEntry[] {
+  // Skip if solo
+  if (newState.playerIds.length <= 1) return []
+
+  const entries: StatEntry[] = []
+
+  // The "king" is the player who went out first (index 0 in outIndex)
+  if (newState.outIndex.length > 0) {
+    const kingIdx = newState.outIndex[0]!
+    const kingId = newState.playerIds[kingIdx]!
+    entries.push({
+      playerId: kingId,
+      gameType: "Glum",
+      stat: "glum_king_round",
+      value: 1,
+    })
+  }
+
+  return entries
+}
+
+// ---------------------------------------------------------------------------
+// GameFunctions implementation
+// ---------------------------------------------------------------------------
+
 export const glumFunctions: GameFunctions<GlumGame, GlumEvent> = {
   gameType: "Glum",
 
@@ -497,4 +527,6 @@ export const glumFunctions: GameFunctions<GlumGame, GlumEvent> = {
   isRoundOver: (state) => isRoundOverGlum(state),
 
   isGameOver: (state, config) => isGameOverGlum(state, config),
+
+  onRoundEnd: glumOnRoundEnd,
 }

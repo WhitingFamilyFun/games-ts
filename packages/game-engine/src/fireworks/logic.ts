@@ -14,6 +14,7 @@ import type {
   GameConfig,
   Player,
   PlayerId,
+  StatEntry,
 } from "@games/effect-schemas"
 import { InvalidMove, NotYourTurn, initGenericFields } from "@games/effect-schemas"
 import type { GameFunctions } from "../engine.js"
@@ -361,6 +362,41 @@ export function isRoundOverFireworks(state: FireworksGame): boolean {
 // GameFunctions implementation
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Stat hooks
+// ---------------------------------------------------------------------------
+
+function fireworksOnGameEnd(state: FireworksGame, _config: GameConfig): StatEntry[] {
+  // Skip if solo
+  if (state.playerIds.length <= 1) return []
+
+  const entries: StatEntry[] = []
+  const score = fireworksScore(state)
+  const teammates = state.playerIds.map(id => id as string)
+
+  for (const pid of state.playerIds) {
+    entries.push({ playerId: pid, gameType: "Fireworks", stat: "fireworks_score", value: score })
+
+    if (score === 25) {
+      entries.push({ playerId: pid, gameType: "Fireworks", stat: "fireworks_perfect", value: 1 })
+    }
+
+    entries.push({
+      playerId: pid,
+      gameType: "Fireworks",
+      stat: "fireworks_team",
+      value: score,
+      metadata: { teammates: teammates.filter(t => t !== pid) },
+    })
+  }
+
+  return entries
+}
+
+// ---------------------------------------------------------------------------
+// GameFunctions implementation
+// ---------------------------------------------------------------------------
+
 export const fireworksFunctions: GameFunctions<FireworksGame, FireworksEvent> = {
   gameType: "Fireworks",
 
@@ -412,4 +448,6 @@ export const fireworksFunctions: GameFunctions<FireworksGame, FireworksEvent> = 
   isRoundOver: (state) => isRoundOverFireworks(state),
 
   isGameOver: (state) => isRoundOverFireworks(state),
+
+  onGameEnd: fireworksOnGameEnd,
 }

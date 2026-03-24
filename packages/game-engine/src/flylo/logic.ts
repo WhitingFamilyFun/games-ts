@@ -12,6 +12,7 @@ import type {
   GameConfig,
   Player,
   PlayerId,
+  StatEntry,
 } from "@games/effect-schemas"
 import { InvalidMove, NotYourTurn, initGenericFields } from "@games/effect-schemas"
 import type { GameFunctions } from "../engine.js"
@@ -492,6 +493,70 @@ function checkForNeedShuffle(state: FlyloGame): FlyloGame {
 // GameFunctions implementation
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Stat hooks
+// ---------------------------------------------------------------------------
+
+function flyloOnRoundEnd(_prevState: FlyloGame, newState: FlyloGame, _config: GameConfig): StatEntry[] {
+  // Skip if solo
+  if (newState.playerIds.length <= 1) return []
+
+  const entries: StatEntry[] = []
+  for (let i = 0; i < newState.playerIds.length; i++) {
+    const player = newState.flyloPlayers[i]!
+    const roundScore = deckVisibleTotal(player.deck)
+    entries.push({
+      playerId: newState.playerIds[i]!,
+      gameType: "Flylo",
+      stat: "flylo_round_score",
+      value: roundScore,
+    })
+  }
+  return entries
+}
+
+function flyloOnGameEnd(state: FlyloGame, _config: GameConfig): StatEntry[] {
+  // Skip wins if solo
+  const isSolo = state.playerIds.length <= 1
+  const entries: StatEntry[] = []
+
+  // Find winner (lowest cumulative score)
+  let minScore = Infinity
+  let winnerIdx = 0
+  for (let i = 0; i < state.flyloPlayers.length; i++) {
+    const score = state.flyloPlayers[i]!.currentScore
+    if (score < minScore) {
+      minScore = score
+      winnerIdx = i
+    }
+  }
+
+  for (let i = 0; i < state.playerIds.length; i++) {
+    const pid = state.playerIds[i]!
+    const score = state.flyloPlayers[i]!.currentScore
+
+    // Record game score for each player
+    entries.push({ playerId: pid, gameType: "Flylo", stat: "flylo_game_score", value: score })
+
+    // Record win for winner
+    if (!isSolo && i === winnerIdx) {
+      entries.push({ playerId: pid, gameType: "Flylo", stat: "flylo_win", value: 1 })
+    }
+
+    // Record lowest/highest round scores
+    // We use the final round's visible total as a proxy since we don't track per-round history
+    const roundScore = deckVisibleTotal(state.flyloPlayers[i]!.deck)
+    entries.push({ playerId: pid, gameType: "Flylo", stat: "flylo_lowest_round", value: roundScore })
+    entries.push({ playerId: pid, gameType: "Flylo", stat: "flylo_highest_round", value: roundScore })
+  }
+
+  return entries
+}
+
+// ---------------------------------------------------------------------------
+// GameFunctions implementation
+// ---------------------------------------------------------------------------
+
 export const flyloFunctions: GameFunctions<FlyloGame, FlyloEvent> = {
   gameType: "Flylo",
 
@@ -507,4 +572,8 @@ export const flyloFunctions: GameFunctions<FlyloGame, FlyloEvent> = {
   isRoundOver: (state) => isRoundOverFlylo(state),
 
   isGameOver: (state, config) => isGameOverFlylo(state, config),
+
+  onRoundEnd: flyloOnRoundEnd,
+
+  onGameEnd: flyloOnGameEnd,
 }
