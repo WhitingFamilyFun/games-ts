@@ -30,39 +30,102 @@ const run = <A>(effect: Effect.Effect<A, unknown, Database>) =>
 const runExit = <A>(effect: Effect.Effect<A, unknown, Database>) =>
   Effect.runPromiseExit(Effect.provide(effect, FirebaseDatabaseLive))
 
-describe("Game lifecycle", () => {
-  it("create → join → read lobby from DB → start", async () => {
-    // Create game
-    const createResult = (await run(
-      handlers.createGameHandler({
-        playerID: "alice",
-        config: { gameType: "Flylo", adminID: "alice", options: { randomSeed: 42 } },
-      })
-    )) as { code: string }
-    expect(createResult.code).toBeTruthy()
-    const { code } = createResult
+// Helper to run a full create → join → start lifecycle for any game type
+async function createAndStartGame(gameType: string, options: Record<string, unknown> = {}) {
+  const createResult = (await run(
+    handlers.createGameHandler({
+      playerID: "alice",
+      config: { gameType, adminID: "alice", options: { randomSeed: 42, ...options } },
+    })
+  )) as { code: string }
+  const { code } = createResult
 
-    // Join 2 players
-    await run(handlers.joinGameHandler({ code, playerID: "alice", name: "Alice" }))
-    await run(handlers.joinGameHandler({ code, playerID: "bob", name: "Bob" }))
+  await run(handlers.joinGameHandler({ code, playerID: "alice", name: "Alice" }))
+  await run(handlers.joinGameHandler({ code, playerID: "bob", name: "Bob" }))
 
-    // Read lobby directly from DB (replaces getLobby polling endpoint)
-    const lobbySnap = await admin.database().ref(`games/${code}/lobby`).get()
-    const lobbyData = lobbySnap.val() as { players: Array<{ id: string; name: string }>; gameStatus: string }
-    expect(lobbyData.players).toHaveLength(2)
-    expect(lobbyData.gameStatus).toBe("lobby")
+  const startResult = (await run(
+    handlers.startGameHandler({ code, playerID: "alice" })
+  )) as unknown as { state: { type: string; status: string } }
 
-    // Start game
-    const startResult = (await run(
-      handlers.startGameHandler({ code, playerID: "alice" })
-    )) as unknown as { state: { type: string; status: string } }
-    expect(startResult.state.type).toBe("Flylo")
-    expect(startResult.state.status).toBe("started")
+  return { code, state: startResult.state }
+}
 
-    // Read game state directly from DB (replaces getGameState polling endpoint)
+describe("Game lifecycle — all game types", () => {
+  it("Flylo: create → join → start → verify state in DB", async () => {
+    const { code, state } = await createAndStartGame("Flylo")
+    expect(state.type).toBe("Flylo")
+    expect(state.status).toBe("started")
+
     const stateSnap = await admin.database().ref(`games/${code}/state`).get()
-    const stateData = stateSnap.val() as { type: string }
-    expect(stateData.type).toBe("Flylo")
+    expect(stateSnap.val().type).toBe("Flylo")
+  })
+
+  it("Flixx: create → join → start → verify state in DB", async () => {
+    const { code, state } = await createAndStartGame("Flixx")
+    expect(state.type).toBe("Flixx")
+    expect(state.status).toBe("started")
+
+    const stateSnap = await admin.database().ref(`games/${code}/state`).get()
+    expect(stateSnap.val().type).toBe("Flixx")
+  })
+
+  it("Fireworks: create → join → start → verify state in DB", async () => {
+    const { code, state } = await createAndStartGame("Fireworks")
+    expect(state.type).toBe("Fireworks")
+    expect(state.status).toBe("started")
+
+    const stateSnap = await admin.database().ref(`games/${code}/state`).get()
+    const dbState = stateSnap.val()
+    expect(dbState.type).toBe("Fireworks")
+    expect(dbState.numClocks).toBe(8)
+    expect(dbState.numFuses).toBe(3)
+  })
+
+  it("Glum: create → join → start → verify state in DB", async () => {
+    const { code, state } = await createAndStartGame("Glum")
+    expect(state.type).toBe("Glum")
+    expect(state.status).toBe("started")
+
+    const stateSnap = await admin.database().ref(`games/${code}/state`).get()
+    const dbState = stateSnap.val()
+    expect(dbState.type).toBe("Glum")
+    expect(dbState.glumPlayers).toHaveLength(2)
+  })
+
+  it("Flylo: sendEvent works through DB round-trip", async () => {
+    const { code } = await createAndStartGame("Flylo")
+
+    // Send a flip event
+    const eventResult = (await run(
+      handlers.sendEventHandler({
+        code,
+        playerID: "alice",
+        event: { kind: "flip", index: 0 },
+      })
+    )) as { state: any }
+    expect(eventResult.state).toBeDefined()
+
+    // Verify state persisted in DB
+    const stateSnap = await admin.database().ref(`games/${code}/state`).get()
+    expect(stateSnap.exists()).toBe(true)
+  })
+
+  it("Fireworks: sendEvent (discard) works", async () => {
+    const { code, state: startState } = await createAndStartGame("Fireworks")
+
+    // Use the state returned from startGame (not re-read from DB) to get a valid card
+    const fw = startState as any
+    const currentPlayerId = fw.playerIds[fw.currentPlayerIndex]
+    const card = fw.fireworksPlayers[fw.currentPlayerIndex].cards[0]
+
+    const eventResult = (await run(
+      handlers.sendEventHandler({
+        code,
+        playerID: currentPlayerId,
+        event: { kind: "fw_discard", card: { color: card.color, number: card.number } },
+      })
+    )) as { state: any }
+    expect(eventResult.state).toBeDefined()
   })
 
   it("create → join → delete", async () => {

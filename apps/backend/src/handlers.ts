@@ -25,7 +25,7 @@ import {
 } from "@games/effect-schemas"
 import { GameRegistry } from "@games/game-engine"
 import { Database } from "./db.js"
-import { generateGameCode } from "./utils.js"
+import { generateGameCode, normalizeFirebaseState, sanitizeForFirebase } from "./utils.js"
 
 // --- createGame ---
 
@@ -113,7 +113,7 @@ export const getGamesHandler = (body: unknown) =>
       const lobbyData = yield* db.get(`games/${code}/lobby`)
       if (lobbyData == null) continue
 
-      const decoded = Schema.decodeUnknownSync(Lobby)(lobbyData)
+      const decoded = Schema.decodeUnknownSync(Lobby)(normalizeFirebaseState(lobbyData))
       const player = decoded.players.find((p) => p.id === req.playerID) ?? {
         id: req.playerID,
         name: "Not Found",
@@ -154,12 +154,12 @@ export const startGameHandler = (body: unknown) =>
     }
 
     const lobbyData = yield* db.get(`games/${req.code}/lobby`)
-    const lobby = Schema.decodeUnknownSync(Lobby)(lobbyData)
+    const lobby = Schema.decodeUnknownSync(Lobby)(normalizeFirebaseState(lobbyData))
 
     const gameFns = GameRegistry.get(lobby.config.gameType)
     const initialState = yield* gameFns.initialState(lobby.config, lobby.players)
 
-    yield* db.set(`games/${req.code}/state`, initialState)
+    yield* db.set(`games/${req.code}/state`, sanitizeForFirebase(initialState))
     yield* db.set(`games/${req.code}/lobby/gameStatus`, "started")
 
     return { state: initialState }
@@ -181,23 +181,23 @@ export const sendEventHandler = (body: unknown) =>
     }
 
     const stateData = yield* db.get(`games/${req.code}/state`)
-    const gameState = Schema.decodeUnknownSync(GameState)(stateData)
+    const gameState = Schema.decodeUnknownSync(GameState)(normalizeFirebaseState(stateData))
     const configData = yield* db.get(`games/${req.code}/lobby/config`)
     const config = Schema.decodeUnknownSync(
       Schema.Struct({
-        gameType: Schema.Literal("Flylo", "Flixx"),
+        gameType: Schema.Literal("Flylo", "Flixx", "Fireworks", "Glum"),
         adminID: Schema.optional(Schema.String),
         rounds: Schema.optional(Schema.Number),
         minPlayers: Schema.optional(Schema.Number),
         maxPlayers: Schema.optional(Schema.Number),
         options: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
       })
-    )(configData) as GameConfig
+    )(normalizeFirebaseState(configData)) as GameConfig
 
     const gameFns = GameRegistry.get(config.gameType)
     const newState = yield* gameFns.next(gameState, config, req.playerID, req.event)
 
-    yield* db.set(`games/${req.code}/state`, newState)
+    yield* db.set(`games/${req.code}/state`, sanitizeForFirebase(newState))
     return { state: newState }
   })
 
@@ -217,23 +217,23 @@ export const nextRoundHandler = (body: unknown) =>
     }
 
     const stateData = yield* db.get(`games/${req.code}/state`)
-    const gameState = Schema.decodeUnknownSync(GameState)(stateData)
+    const gameState = Schema.decodeUnknownSync(GameState)(normalizeFirebaseState(stateData))
     const configData = yield* db.get(`games/${req.code}/lobby/config`)
     const config = Schema.decodeUnknownSync(
       Schema.Struct({
-        gameType: Schema.Literal("Flylo", "Flixx"),
+        gameType: Schema.Literal("Flylo", "Flixx", "Fireworks", "Glum"),
         adminID: Schema.optional(Schema.String),
         rounds: Schema.optional(Schema.Number),
         minPlayers: Schema.optional(Schema.Number),
         maxPlayers: Schema.optional(Schema.Number),
         options: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
       })
-    )(configData) as GameConfig
+    )(normalizeFirebaseState(configData)) as GameConfig
 
     const gameFns = GameRegistry.get(config.gameType)
     const newState = yield* gameFns.nextRound(gameState, config)
 
-    yield* db.set(`games/${req.code}/state`, newState)
+    yield* db.set(`games/${req.code}/state`, sanitizeForFirebase(newState))
     return { state: newState }
   })
 
