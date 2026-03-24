@@ -53,6 +53,8 @@ import {
 import type { RoomSnapshot } from '@games/game-services';
 import { useFirebaseRoom } from './lib/useFirebaseRoom.js';
 import { StatsScreen } from './StatsScreen.js';
+import { ref, set } from 'firebase/database';
+import { database } from './lib/firebase.js';
 
 type PaneSession = {
     playerId: string;
@@ -1491,6 +1493,13 @@ export function App() {
     const backendMode = isFirebaseMode ? 'firebase' : 'mock';
     const { user, loading: authLoading, signInWithGoogle, signOut } = useAuth();
     const [showStats, setShowStats] = useState(false);
+
+    // Write user email to RTDB on sign-in (needed for admin checks in stats)
+    useEffect(() => {
+        if (isFirebaseMode && user?.email) {
+            void set(ref(database, `users/${user.uid}/email`), user.email);
+        }
+    }, [user?.uid, user?.email]);
 
     // In Firebase mode, gate on auth
     if (isFirebaseMode) {
