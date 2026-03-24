@@ -1027,3 +1027,130 @@ input {
         grid-template-columns: 1fr;
     }
 }
+
+/* ---- Stats Screen ---- */
+
+.stats-screen {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 1.5rem;
+}
+
+.stats-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.stats-header h2 {
+    flex: 1;
+    margin: 0;
+}
+
+.stats-id-section {
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 12px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1.5rem;
+}
+
+.claim-stats-id input {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 8px;
+    padding: 0.5rem 0.75rem;
+    color: #f4efe4;
+}
+
+.personal-stats {
+    margin-bottom: 2rem;
+}
+
+.personal-stats h3,
+.leaderboards h3 {
+    margin-bottom: 0.75rem;
+    font-size: 1.15rem;
+}
+
+.game-stats-section {
+    background: rgba(255, 255, 255, 0.04);
+    border-radius: 10px;
+    padding: 0.75rem 1rem;
+    margin-bottom: 0.75rem;
+}
+
+.game-stats-section h4 {
+    margin: 0 0 0.5rem 0;
+    font-size: 1rem;
+    color: #cf6d35;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 0.5rem;
+}
+
+.stat-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.35rem 0;
+}
+
+.stat-label {
+    font-size: 0.85rem;
+    color: rgba(244, 239, 228, 0.7);
+}
+
+.stat-value {
+    font-weight: 600;
+    font-size: 1rem;
+}
+
+.leaderboard-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    margin-bottom: 1rem;
+}
+
+.leaderboard-tab {
+    padding: 0.4rem 0.75rem;
+    font-size: 0.8rem;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(244, 239, 228, 0.7);
+    cursor: pointer;
+    border: 1px solid transparent;
+}
+
+.leaderboard-tab.active {
+    background: rgba(207, 109, 53, 0.25);
+    color: #f4efe4;
+    border-color: rgba(207, 109, 53, 0.5);
+}
+
+.leaderboard-table table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.leaderboard-table th,
+.leaderboard-table td {
+    padding: 0.5rem 0.75rem;
+    text-align: left;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.leaderboard-table th {
+    font-size: 0.8rem;
+    color: rgba(244, 239, 228, 0.5);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.leaderboard-table .highlight-row {
+    background: rgba(207, 109, 53, 0.15);
+}

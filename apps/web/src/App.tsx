@@ -52,6 +52,7 @@ import {
 } from './atoms/game.js';
 import type { RoomSnapshot } from '@games/game-services';
 import { useFirebaseRoom } from './lib/useFirebaseRoom.js';
+import { StatsScreen } from './StatsScreen.js';
 
 type PaneSession = {
     playerId: string;
@@ -1489,6 +1490,7 @@ export function App() {
     const setSplitScreen = useAtomSet(splitScreenAtom);
     const backendMode = isFirebaseMode ? 'firebase' : 'mock';
     const { user, loading: authLoading, signInWithGoogle, signOut } = useAuth();
+    const [showStats, setShowStats] = useState(false);
 
     // In Firebase mode, gate on auth
     if (isFirebaseMode) {
@@ -1533,6 +1535,9 @@ export function App() {
                     <span className="mode-pill">{backendMode}</span>
                     {isFirebaseMode && user ? (
                         <>
+                            <button className="btn-secondary" onClick={() => setShowStats(s => !s)}>
+                                {showStats ? 'Play' : 'Stats'}
+                            </button>
                             <div className="user-info">
                                 {user.photoURL ? (
                                     <img className="user-avatar" src={user.photoURL} alt="" referrerPolicy="no-referrer" />
@@ -1547,16 +1552,20 @@ export function App() {
                 </div>
             </div>
 
-            <div className={`pane-grid${splitScreen ? ' split' : ''}`}>
-                {isFirebaseMode && user ? (
-                    <AppPane paneId="left" title="Pane A" firebaseUser={user} />
-                ) : (
-                    <>
-                        <AppPane paneId="left" title="Pane A" />
-                        {splitScreen ? <AppPane paneId="right" title="Pane B" /> : null}
-                    </>
-                )}
-            </div>
+            {isFirebaseMode && user && showStats ? (
+                <StatsScreen user={user} onBack={() => setShowStats(false)} />
+            ) : (
+                <div className={`pane-grid${splitScreen ? ' split' : ''}`}>
+                    {isFirebaseMode && user ? (
+                        <AppPane paneId="left" title="Pane A" firebaseUser={user} />
+                    ) : (
+                        <>
+                            <AppPane paneId="left" title="Pane A" />
+                            {splitScreen ? <AppPane paneId="right" title="Pane B" /> : null}
+                        </>
+                    )}
+                </div>
+            )}
         </main>
     );
 }
