@@ -5,6 +5,7 @@ import { registerAllGames } from "@games/game-engine"
 import { Database, FirebaseDatabaseLive } from "./db.js"
 import { mapErrorToStatus } from "./utils.js"
 import * as handlers from "./handlers.js"
+import * as statsHandlers from "./statsHandlers.js"
 
 admin.initializeApp()
 registerAllGames()
@@ -36,4 +37,10 @@ export const getGames = wrapHandler(handlers.getGamesHandler)
 export const startGame = wrapHandler(handlers.startGameHandler)
 export const sendEvent = wrapHandler(handlers.sendEventHandler)
 export const nextRound = wrapHandler(handlers.nextRoundHandler)
+// Stats endpoints
+export const claimStatsId = wrapHandler(statsHandlers.claimStatsIdHandler)
+export const revokeStatsId = wrapHandler(statsHandlers.revokeStatsIdHandler)
+export const getStatsId = wrapHandler(statsHandlers.getStatsIdHandler)
+export const getStats = wrapHandler(statsHandlers.getStatsHandler)
+export const getLeaderboard = wrapHandler(statsHandlers.getLeaderboardHandler)
 // getGameState and getLobby removed — replaced by Firebase RTDB real-time listeners
