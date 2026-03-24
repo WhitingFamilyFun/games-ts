@@ -2,6 +2,13 @@ import type {
     FlixxColor,
     FlixxGame,
     FlyloGame,
+    FireworksGame,
+    FireworksCard,
+    FireworkColor,
+    GlumGame,
+    GlumPlayer,
+    FaceCard,
+    FaceValue,
     GameConfig,
     GameEvent,
     GameInfo,
@@ -22,6 +29,10 @@ import {
     isUnavailable,
     LOW_TO_HIGH,
     playerScore,
+    fireworksScore,
+    isRoundOverFireworks,
+    isRoundOverGlum,
+    cardValue as glumCardValue,
 } from '@games/game-engine';
 import type { CardNum } from '@games/effect-schemas';
 import { useAtomSet, useAtomValue } from '@effect-atom/atom-react';
@@ -232,7 +243,7 @@ function AppPane({ paneId, title }: { paneId: string; title: string }) {
         }
     }
 
-    async function createGame(gameType: 'Flylo' | 'Flixx') {
+    async function createGame(gameType: 'Flylo' | 'Flixx' | 'Fireworks' | 'Glum') {
         const config: GameConfig = {
             gameType,
             adminID: session.playerId as PlayerId,
@@ -342,6 +353,36 @@ function AppPane({ paneId, title }: { paneId: string; title: string }) {
                         }}
                         loading={loading}
                     />
+                ) : room.state?.type === 'Fireworks' ? (
+                    <FireworksView
+                        lobby={room.lobby}
+                        session={session}
+                        game={room.state}
+                        onLeave={() => runAction(leavePane)}
+                        onAction={runAction}
+                        onSendEvent={async (event: GameEvent) => {
+                            const state = await doSendEvent({ playerId: session.playerId as PlayerId, code: room.lobby.code, event });
+                            setRoom(prev => prev ? { ...prev, state } : prev);
+                        }}
+                        loading={loading}
+                    />
+                ) : room.state?.type === 'Glum' ? (
+                    <GlumView
+                        lobby={room.lobby}
+                        session={session}
+                        game={room.state}
+                        onLeave={() => runAction(leavePane)}
+                        onAction={runAction}
+                        onSendEvent={async (event: GameEvent) => {
+                            const state = await doSendEvent({ playerId: session.playerId as PlayerId, code: room.lobby.code, event });
+                            setRoom(prev => prev ? { ...prev, state } : prev);
+                        }}
+                        onNextRound={async () => {
+                            const state = await doNextRound({ playerId: session.playerId as PlayerId, code: room.lobby.code });
+                            setRoom(prev => prev ? { ...prev, state } : prev);
+                        }}
+                        loading={loading}
+                    />
                 ) : (
                     <div className="summary-panel">Waiting for game state...</div>
                 )}
@@ -362,7 +403,7 @@ function HomeView({
     games: readonly GameInfo[];
     joinCode: string;
     onJoinCodeChange: (value: string) => void;
-    onCreate: (gameType: 'Flylo' | 'Flixx') => void;
+    onCreate: (gameType: 'Flylo' | 'Flixx' | 'Fireworks' | 'Glum') => void;
     onJoin: () => void;
     onResume: (code: string) => void;
     loading: boolean;
@@ -384,6 +425,20 @@ function HomeView({
                         <span className="game-card-info">
                             <span className="game-card-name">{loading ? 'Flixx...' : 'Flixx'}</span>
                             <span className="game-card-desc">Dice game &middot; 2-6 players</span>
+                        </span>
+                    </button>
+                    <button className="game-card" onClick={() => onCreate('Fireworks')} disabled={loading}>
+                        <span className="game-card-icon">&#127878;</span>
+                        <span className="game-card-info">
+                            <span className="game-card-name">{loading ? 'Fireworks...' : 'Fireworks'}</span>
+                            <span className="game-card-desc">Co-op card game &middot; 2-6 players</span>
+                        </span>
+                    </button>
+                    <button className="game-card" onClick={() => onCreate('Glum')} disabled={loading}>
+                        <span className="game-card-icon">&#127183;</span>
+                        <span className="game-card-info">
+                            <span className="game-card-name">{loading ? 'Glum...' : 'Glum'}</span>
+                            <span className="game-card-desc">Card shedding &middot; 3-8 players</span>
                         </span>
                     </button>
                 </div>
@@ -880,6 +935,535 @@ function FlixxView({
                     </table>
                 </div>
             ) : null}
+        </>
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Fireworks helpers
+// ---------------------------------------------------------------------------
+
+const FIREWORK_COLORS: FireworkColor[] = ['red', 'green', 'blue', 'white', 'yellow'];
+
+const FIREWORK_COLOR_CSS: Record<FireworkColor, string> = {
+    red: '#c62828',
+    green: '#2e7d32',
+    blue: '#0288d1',
+    white: '#bdbdbd',
+    yellow: '#f9a825',
+};
+
+const FIREWORK_COLOR_TEXT: Record<FireworkColor, string> = {
+    red: '#fff',
+    green: '#fff',
+    blue: '#fff',
+    white: '#222',
+    yellow: '#333',
+};
+
+function FireworksView({
+    lobby,
+    session,
+    game,
+    onLeave,
+    onAction,
+    onSendEvent,
+    loading,
+}: {
+    lobby: Lobby;
+    session: PaneSession;
+    game: FireworksGame;
+    onLeave: () => void;
+    onAction: (action: () => Promise<void>) => Promise<void>;
+    onSendEvent: (event: GameEvent) => Promise<void>;
+    loading: boolean;
+}) {
+    const ownIndex = game.playerIds.indexOf(session.playerId as PlayerId);
+    const roundOver = isRoundOverFireworks(game);
+    const score = fireworksScore(game);
+    const currentPlayerId = game.currentPlayerIndex >= 0 ? game.playerIds[game.currentPlayerIndex] ?? '' : '';
+    const isMyTurn = currentPlayerId === session.playerId;
+    const isHintPending = game.hintForPlayer !== null;
+    const isHintForMe = game.hintForPlayer === session.playerId;
+
+    // Hint UI state
+    const [hintTarget, setHintTarget] = useState<PlayerId | ''>('');
+    const [hintColor, setHintColor] = useState<FireworkColor>('red');
+    const [hintNumber, setHintNumber] = useState<number>(1);
+
+    function sendEvent(event: GameEvent) {
+        return onAction(() => onSendEvent(event));
+    }
+
+    // Carousel for other players' hands (skip self)
+    const otherPlayers = useMemo(() => {
+        return lobby.players
+            .map((p, i) => ({ player: p, index: i }))
+            .filter(({ player }) => player.id !== session.playerId);
+    }, [lobby.players, session.playerId]);
+
+    const [carouselIdx, setCarouselIdx] = useState(0);
+    const viewedIdx = otherPlayers.length > 0 ? carouselIdx % otherPlayers.length : 0;
+    const viewed = otherPlayers[viewedIdx];
+
+    // Swipe handling
+    const touchStartX = useRef<number | null>(null);
+    const handleTouchStart = (e: ReactTouchEvent) => { touchStartX.current = e.touches[0]?.clientX ?? null; };
+    const handleTouchEnd = (e: ReactTouchEvent) => {
+        if (touchStartX.current === null) return;
+        const dx = (e.changedTouches[0]?.clientX ?? 0) - touchStartX.current;
+        touchStartX.current = null;
+        if (Math.abs(dx) < 40) return;
+        if (dx < 0) setCarouselIdx(i => (i + 1) % Math.max(otherPlayers.length, 1));
+        else setCarouselIdx(i => (i - 1 + Math.max(otherPlayers.length, 1)) % Math.max(otherPlayers.length, 1));
+    };
+
+    return (
+        <>
+            {/* Game info header */}
+            <div className="summary-panel">
+                <h3>Fireworks</h3>
+                <div className="status-row">
+                    <span className="info-pill">Code {lobby.code}</span>
+                    <span className="info-pill">Score: {score}/25</span>
+                    <span className="info-pill">Deck: {game.drawPile.cards.length}</span>
+                </div>
+                <div className="status-row" style={{ marginTop: '0.5rem' }}>
+                    <span className="fw-clocks">{'O'.repeat(game.numClocks)}{'_'.repeat(8 - game.numClocks)} Clocks</span>
+                    <span className="fw-fuses">{'*'.repeat(game.numFuses)}{'_'.repeat(3 - game.numFuses)} Fuses</span>
+                </div>
+            </div>
+
+            {/* Fireworks display */}
+            <div className="fw-display">
+                {FIREWORK_COLORS.map(color => (
+                    <div
+                        key={color}
+                        className="fw-column"
+                        style={{ backgroundColor: FIREWORK_COLOR_CSS[color], color: FIREWORK_COLOR_TEXT[color] }}
+                    >
+                        <div className="fw-color-label">{color}</div>
+                        <div className="fw-color-value">{game.fireworks[color] ?? 0}</div>
+                    </div>
+                ))}
+            </div>
+
+            {/* Turn / hint status */}
+            <p className="help-text">
+                {roundOver
+                    ? (game.numFuses === 0 ? 'Boom! A fuse blew - game over!' : `Game over! Final score: ${score}/25`)
+                    : isHintPending
+                        ? (isHintForMe
+                            ? `You received a hint! ${game.showColor ? `Color: ${game.showColor}` : ''}${game.showNumber ? `Number: ${game.showNumber}` : ''}`
+                            : `Waiting for ${lobby.players.find(p => p.id === game.hintForPlayer)?.name ?? 'player'} to acknowledge hint...`)
+                        : (isMyTurn
+                            ? 'Your turn: Play, Discard, or give a Hint'
+                            : `Waiting for ${lobby.players.find(p => p.id === currentPlayerId)?.name ?? 'unknown'}...`)
+                }
+            </p>
+
+            {/* Actions */}
+            <div className="actions">
+                {isHintForMe && !roundOver ? (
+                    <button onClick={() => void sendEvent({ kind: 'sawHint' })} disabled={loading}>
+                        Acknowledge Hint
+                    </button>
+                ) : null}
+                <button className="btn-danger" onClick={onLeave} disabled={loading}>Leave</button>
+            </div>
+
+            {/* Hint UI - only when it's your turn and no hint pending */}
+            {isMyTurn && !isHintPending && !roundOver ? (
+                <div className="summary-panel">
+                    <h3>Give a Hint</h3>
+                    <div className="fw-hint-row">
+                        <select
+                            value={hintTarget}
+                            onChange={e => setHintTarget(e.target.value as PlayerId)}
+                            style={{ borderRadius: '12px', padding: '0.5rem', background: 'rgba(11,16,23,0.55)', color: 'inherit', border: '1px solid rgba(255,255,255,0.15)' }}
+                        >
+                            <option value="">Select player...</option>
+                            {lobby.players.filter(p => p.id !== session.playerId).map(p => (
+                                <option key={p.id} value={p.id}>{p.name}</option>
+                            ))}
+                        </select>
+                    </div>
+                    <div className="fw-hint-row" style={{ marginTop: '0.5rem' }}>
+                        <div className="actions">
+                            {FIREWORK_COLORS.map(c => (
+                                <button
+                                    key={c}
+                                    className={`btn-secondary fw-hint-color-btn${hintColor === c ? ' fw-hint-selected' : ''}`}
+                                    style={{ backgroundColor: hintColor === c ? FIREWORK_COLOR_CSS[c] : undefined, color: hintColor === c ? FIREWORK_COLOR_TEXT[c] : undefined, padding: '0.4rem 0.7rem', minHeight: 'auto' }}
+                                    onClick={() => setHintColor(c)}
+                                >{c}</button>
+                            ))}
+                            <button
+                                onClick={() => void sendEvent({ kind: 'infoColor', color: hintColor, hintFor: hintTarget as PlayerId })}
+                                disabled={!hintTarget || game.numClocks <= 0 || loading}
+                            >Hint Color</button>
+                        </div>
+                    </div>
+                    <div className="fw-hint-row" style={{ marginTop: '0.5rem' }}>
+                        <div className="actions">
+                            {[1, 2, 3, 4, 5].map(n => (
+                                <button
+                                    key={n}
+                                    className={`btn-secondary${hintNumber === n ? ' fw-hint-selected' : ''}`}
+                                    style={{ padding: '0.4rem 0.7rem', minHeight: 'auto', border: hintNumber === n ? '2px solid rgba(252,181,105,0.8)' : undefined }}
+                                    onClick={() => setHintNumber(n)}
+                                >{n}</button>
+                            ))}
+                            <button
+                                onClick={() => void sendEvent({ kind: 'infoNumber', number: hintNumber, hintFor: hintTarget as PlayerId })}
+                                disabled={!hintTarget || game.numClocks <= 0 || loading}
+                            >Hint Number</button>
+                        </div>
+                    </div>
+                </div>
+            ) : null}
+
+            {/* Game over banner */}
+            {roundOver ? (
+                <div className="round-over-banner game-over">
+                    <h3>{game.numFuses === 0 ? 'Explosion!' : 'Game Complete'}</h3>
+                    <div className="round-scores">
+                        <div className="round-score-entry">
+                            <span>Final Score</span>
+                            <span>{score} / 25</span>
+                        </div>
+                    </div>
+                    {FIREWORK_COLORS.map(color => (
+                        <span key={color} className="info-pill" style={{ margin: '0.2rem', backgroundColor: FIREWORK_COLOR_CSS[color], color: FIREWORK_COLOR_TEXT[color] }}>
+                            {color}: {game.fireworks[color] ?? 0}
+                        </span>
+                    ))}
+                </div>
+            ) : null}
+
+            {/* Your hand (card backs) */}
+            {ownIndex >= 0 ? (
+                <div className="card-panel player-tile self">
+                    <div className="player-hand-header">
+                        <h3>Your Hand (hidden from you)</h3>
+                    </div>
+                    <div className="fw-hand">
+                        {game.fireworksPlayers[ownIndex]?.cards.map((_, cardIdx) => (
+                            <div key={cardIdx} className="fw-card-back">
+                                <div className="fw-card-back-label">?</div>
+                                <div className="actions" style={{ gap: '0.3rem', marginTop: '0.3rem' }}>
+                                    <button
+                                        className="btn-secondary"
+                                        style={{ padding: '0.3rem 0.5rem', fontSize: '0.8rem', minHeight: 'auto' }}
+                                        onClick={() => {
+                                            const card = game.fireworksPlayers[ownIndex]?.cards[cardIdx];
+                                            if (card) void sendEvent({ kind: 'play', card });
+                                        }}
+                                        disabled={!isMyTurn || isHintPending || roundOver || loading}
+                                    >Play</button>
+                                    <button
+                                        className="btn-secondary"
+                                        style={{ padding: '0.3rem 0.5rem', fontSize: '0.8rem', minHeight: 'auto' }}
+                                        onClick={() => {
+                                            const card = game.fireworksPlayers[ownIndex]?.cards[cardIdx];
+                                            if (card) void sendEvent({ kind: 'discard', card });
+                                        }}
+                                        disabled={!isMyTurn || isHintPending || roundOver || loading}
+                                    >Discard</button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            ) : null}
+
+            {/* Other players' hands (visible) */}
+            {viewed ? (() => {
+                const { player: viewedPlayer, index: viewedPlayerIdx } = viewed;
+                const fwPlayer = game.fireworksPlayers[viewedPlayerIdx];
+                if (!fwPlayer) return null;
+                const isCurrent = viewedPlayer.id === currentPlayerId;
+                const isHintTarget = viewedPlayer.id === game.hintForPlayer;
+                return (
+                    <div
+                        className={`card-panel player-tile${isCurrent ? ' current' : ''} carousel-panel`}
+                        onTouchStart={handleTouchStart}
+                        onTouchEnd={handleTouchEnd}
+                    >
+                        <div className="player-hand-header">
+                            <div className="carousel-nav">
+                                <button className="carousel-btn" onClick={() => setCarouselIdx(i => (i - 1 + otherPlayers.length) % otherPlayers.length)}>&larr;</button>
+                                <h3>{viewedPlayer.name}{isCurrent ? ' (Turn)' : ''}</h3>
+                                <button className="carousel-btn" onClick={() => setCarouselIdx(i => (i + 1) % otherPlayers.length)}>&rarr;</button>
+                            </div>
+                            <span className="muted">{fwPlayer.cards.length} cards</span>
+                        </div>
+                        <div className="carousel-dots">
+                            {otherPlayers.map((_, i) => (
+                                <button key={i} className={`dot${i === viewedIdx ? ' active' : ''}`} onClick={() => setCarouselIdx(i)} />
+                            ))}
+                        </div>
+                        <div className="fw-hand">
+                            {fwPlayer.cards.map((card, cardIdx) => {
+                                const highlighted = isHintTarget && (
+                                    (game.showColor !== null && card.color === game.showColor) ||
+                                    (game.showNumber !== null && card.number === game.showNumber)
+                                );
+                                return (
+                                    <div
+                                        key={cardIdx}
+                                        className={`fw-card-face${highlighted ? ' fw-card-highlighted' : ''}`}
+                                        style={{ backgroundColor: FIREWORK_COLOR_CSS[card.color], color: FIREWORK_COLOR_TEXT[card.color] }}
+                                    >
+                                        <div className="fw-card-number">{card.number}</div>
+                                        <div className="fw-card-color-label">{card.color}</div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                );
+            })() : null}
+        </>
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Glum helpers
+// ---------------------------------------------------------------------------
+
+const FACE_VALUE_ORDER: FaceValue[] = [
+    'two', 'three', 'four', 'five', 'six', 'seven',
+    'eight', 'nine', 'ten', 'jack', 'queen', 'king', 'ace',
+];
+
+const FACE_VALUE_DISPLAY: Record<FaceValue, string> = {
+    ace: 'A', two: '2', three: '3', four: '4', five: '5', six: '6',
+    seven: '7', eight: '8', nine: '9', ten: '10', jack: 'J', queen: 'Q', king: 'K',
+};
+
+const SUIT_SYMBOL: Record<string, string> = {
+    clubs: '\u2663', spades: '\u2660', hearts: '\u2665', diamonds: '\u2666',
+};
+
+function glumCardDisplay(card: FaceCard): string {
+    if (card.kind === 'joker') return '\uD83C\uDCCF';
+    return `${SUIT_SYMBOL[card.suit] ?? '?'}${FACE_VALUE_DISPLAY[card.value] ?? '?'}`;
+}
+
+function glumCardIsRed(card: FaceCard): boolean {
+    return card.kind === 'normal' && (card.suit === 'hearts' || card.suit === 'diamonds');
+}
+
+function sortGlumHand(cards: readonly FaceCard[]): FaceCard[] {
+    return [...cards].sort((a, b) => glumCardValue(a) - glumCardValue(b));
+}
+
+function GlumView({
+    lobby,
+    session,
+    game,
+    onLeave,
+    onAction,
+    onSendEvent,
+    onNextRound,
+    loading,
+}: {
+    lobby: Lobby;
+    session: PaneSession;
+    game: GlumGame;
+    onLeave: () => void;
+    onAction: (action: () => Promise<void>) => Promise<void>;
+    onSendEvent: (event: GameEvent) => Promise<void>;
+    onNextRound: () => Promise<void>;
+    loading: boolean;
+}) {
+    const ownIndex = game.playerIds.indexOf(session.playerId as PlayerId);
+    const ownPlayer = ownIndex >= 0 ? game.glumPlayers[ownIndex] : null;
+    const currentPlayerId = game.playerIds[game.currentPlayerIndex] ?? '';
+    const isMyTurn = currentPlayerId === session.playerId;
+    const roundOver = isRoundOverGlum(game);
+
+    // Selected cards (indices into sorted hand)
+    const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
+
+    const sortedHand = useMemo(() => ownPlayer ? sortGlumHand(ownPlayer.deck) : [], [ownPlayer?.deck]);
+
+    function toggleCard(idx: number) {
+        setSelectedIndices(prev => {
+            const next = new Set(prev);
+            if (next.has(idx)) next.delete(idx);
+            else next.add(idx);
+            return next;
+        });
+    }
+
+    function sendEvent(event: GameEvent) {
+        return onAction(() => onSendEvent(event));
+    }
+
+    function playSelectedCards() {
+        if (selectedIndices.size === 0) return;
+        const cards = Array.from(selectedIndices).map(i => sortedHand[i]!);
+        setSelectedIndices(new Set());
+        void sendEvent({ kind: 'playSet', glumSet: { cards, declaredValue: null } });
+    }
+
+    // Top of pile
+    const topSet = game.pile.sets.length > 0 ? game.pile.sets[game.pile.sets.length - 1]! : null;
+
+    // Other players carousel
+    const otherPlayers = useMemo(() => {
+        return lobby.players
+            .map((p, i) => ({ player: p, index: i }))
+            .filter(({ player }) => player.id !== session.playerId);
+    }, [lobby.players, session.playerId]);
+
+    const [carouselIdx, setCarouselIdx] = useState(0);
+    const viewedIdx = otherPlayers.length > 0 ? carouselIdx % otherPlayers.length : 0;
+    const viewed = otherPlayers[viewedIdx];
+
+    const touchStartX = useRef<number | null>(null);
+    const handleTouchStart = (e: ReactTouchEvent) => { touchStartX.current = e.touches[0]?.clientX ?? null; };
+    const handleTouchEnd = (e: ReactTouchEvent) => {
+        if (touchStartX.current === null) return;
+        const dx = (e.changedTouches[0]?.clientX ?? 0) - touchStartX.current;
+        touchStartX.current = null;
+        if (Math.abs(dx) < 40) return;
+        if (dx < 0) setCarouselIdx(i => (i + 1) % Math.max(otherPlayers.length, 1));
+        else setCarouselIdx(i => (i - 1 + Math.max(otherPlayers.length, 1)) % Math.max(otherPlayers.length, 1));
+    };
+
+    return (
+        <>
+            {/* Game info */}
+            <div className="summary-panel">
+                <h3>Glum</h3>
+                <div className="status-row">
+                    <span className="info-pill">Code {lobby.code}</span>
+                    <span className="info-pill">Round {game.round}</span>
+                    <span className="info-pill">Turn: {lobby.players.find(p => p.id === currentPlayerId)?.name ?? 'Unknown'}</span>
+                </div>
+            </div>
+
+            {/* Pile display */}
+            <div className="summary-panel">
+                <h3>Pile {topSet ? `(${topSet.cards.length} card set)` : '(empty)'}</h3>
+                {topSet ? (
+                    <div className="glum-pile">
+                        {topSet.cards.map((card, i) => (
+                            <span key={i} className={`glum-card-display${glumCardIsRed(card) ? ' glum-red' : ' glum-black'}`}>
+                                {glumCardDisplay(card)}
+                            </span>
+                        ))}
+                    </div>
+                ) : (
+                    <p className="muted">No cards played yet. Lead with any set.</p>
+                )}
+            </div>
+
+            {/* Help text */}
+            <p className="help-text">
+                {roundOver
+                    ? 'Round over!'
+                    : isMyTurn
+                        ? (topSet ? 'Select cards and Play, or Pass' : 'Select cards and Play (you must lead)')
+                        : `Waiting for ${lobby.players.find(p => p.id === currentPlayerId)?.name ?? 'unknown'}...`
+                }
+            </p>
+
+            {/* Actions */}
+            <div className="actions">
+                <button onClick={playSelectedCards} disabled={!isMyTurn || selectedIndices.size === 0 || roundOver || loading}>
+                    Play {selectedIndices.size > 0 ? `(${selectedIndices.size})` : 'Cards'}
+                </button>
+                <button className="btn-secondary" onClick={() => void sendEvent({ kind: 'pass' })} disabled={!isMyTurn || !topSet || roundOver || loading}>
+                    Pass
+                </button>
+                <button className="btn-secondary" onClick={() => void onAction(() => onNextRound())} disabled={!roundOver || loading}>
+                    Next Round
+                </button>
+                <button className="btn-danger" onClick={onLeave} disabled={loading}>Leave</button>
+            </div>
+
+            {/* Round over banner */}
+            {roundOver ? (
+                <div className="round-over-banner">
+                    <h3>Round Over!</h3>
+                    <div className="round-scores">
+                        {lobby.players.map((player, pIdx) => {
+                            const gp = game.glumPlayers[pIdx];
+                            if (!gp) return null;
+                            const isOut = game.outIndex.includes(pIdx);
+                            const place = game.outIndex.indexOf(pIdx);
+                            return (
+                                <div key={player.id} className={`round-score-entry${place === 0 ? ' winner' : ''}`}>
+                                    <span>{playerLabel(player, session)}</span>
+                                    <span>{isOut ? `Out #${place + 1}` : `${gp.deck.length} cards left`}</span>
+                                    <span>Total: {game.rewards[pIdx] ?? 0}</span>
+                                </div>
+                            );
+                        })}
+                    </div>
+                    <button onClick={() => void onAction(() => onNextRound())} disabled={loading}>Next Round</button>
+                </div>
+            ) : null}
+
+            {/* Your hand */}
+            {ownPlayer ? (
+                <div className="card-panel player-tile self">
+                    <div className="player-hand-header">
+                        <h3>Your Hand ({sortedHand.length} cards)</h3>
+                        {ownPlayer.passed ? <span className="setup-status waiting">Passed</span> : null}
+                    </div>
+                    <div className="glum-hand">
+                        {sortedHand.map((card, idx) => (
+                            <button
+                                key={idx}
+                                className={`glum-card${selectedIndices.has(idx) ? ' glum-card-selected' : ''}${glumCardIsRed(card) ? ' glum-red' : ' glum-black'}`}
+                                onClick={() => toggleCard(idx)}
+                                disabled={roundOver}
+                            >
+                                {glumCardDisplay(card)}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            ) : null}
+
+            {/* Other players */}
+            {viewed ? (() => {
+                const { player: viewedPlayer, index: viewedPlayerIdx } = viewed;
+                const glumPlayer = game.glumPlayers[viewedPlayerIdx];
+                if (!glumPlayer) return null;
+                const isCurrent = viewedPlayer.id === currentPlayerId;
+                const isOut = game.outIndex.includes(viewedPlayerIdx);
+                return (
+                    <div
+                        className={`card-panel player-tile${isCurrent ? ' current' : ''} carousel-panel`}
+                        onTouchStart={handleTouchStart}
+                        onTouchEnd={handleTouchEnd}
+                    >
+                        <div className="player-hand-header">
+                            <div className="carousel-nav">
+                                <button className="carousel-btn" onClick={() => setCarouselIdx(i => (i - 1 + otherPlayers.length) % otherPlayers.length)}>&larr;</button>
+                                <h3>{viewedPlayer.name}{isCurrent ? ' (Turn)' : ''}</h3>
+                                <button className="carousel-btn" onClick={() => setCarouselIdx(i => (i + 1) % otherPlayers.length)}>&rarr;</button>
+                            </div>
+                            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                                <span className="muted">{glumPlayer.deck.length} cards</span>
+                                {glumPlayer.passed ? <span className="setup-status waiting">Passed</span> : null}
+                                {isOut ? <span className="setup-status ready">Out #{game.outIndex.indexOf(viewedPlayerIdx) + 1}</span> : null}
+                            </div>
+                        </div>
+                        <div className="carousel-dots">
+                            {otherPlayers.map((_, i) => (
+                                <button key={i} className={`dot${i === viewedIdx ? ' active' : ''}`} onClick={() => setCarouselIdx(i)} />
+                            ))}
+                        </div>
+                    </div>
+                );
+            })() : null}
         </>
     );
 }

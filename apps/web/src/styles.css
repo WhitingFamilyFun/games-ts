@@ -745,6 +745,192 @@ input {
     font-weight: 800;
 }
 
+/* ========================================================================= */
+/* Fireworks                                                                 */
+/* ========================================================================= */
+
+.fw-display {
+    display: flex;
+    justify-content: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin: 0.5rem 0;
+}
+
+.fw-column {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    border-radius: 12px;
+    padding: 0.6rem 1rem;
+    min-width: 4rem;
+    text-align: center;
+}
+
+.fw-color-label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 600;
+    opacity: 0.85;
+}
+
+.fw-color-value {
+    font-size: 1.8rem;
+    font-weight: 800;
+    line-height: 1;
+    margin-top: 0.2rem;
+}
+
+.fw-clocks,
+.fw-fuses {
+    font-family: "Courier New", monospace;
+    font-size: 0.9rem;
+    letter-spacing: 0.1em;
+}
+
+.fw-hand {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding: 0.5rem 0;
+}
+
+.fw-card-back {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 4.5rem;
+    min-height: 5.5rem;
+    border-radius: 14px;
+    background: linear-gradient(135deg, #262d39, #11161f);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 0.4rem;
+}
+
+.fw-card-back-label {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.35);
+}
+
+.fw-card-face {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 4.5rem;
+    min-height: 5.5rem;
+    border-radius: 14px;
+    border: 2px solid transparent;
+    padding: 0.4rem;
+    transition: border-color 200ms ease, box-shadow 200ms ease;
+}
+
+.fw-card-face.fw-card-highlighted {
+    border-color: rgba(252, 181, 105, 0.9);
+    box-shadow: 0 0 12px rgba(252, 181, 105, 0.5);
+    animation: pulse 1.4s ease-in-out infinite;
+}
+
+.fw-card-number {
+    font-size: 1.6rem;
+    font-weight: 800;
+    line-height: 1;
+}
+
+.fw-card-color-label {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-top: 0.2rem;
+    opacity: 0.8;
+}
+
+.fw-hint-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.fw-hint-selected {
+    border: 2px solid rgba(252, 181, 105, 0.8) !important;
+}
+
+/* ========================================================================= */
+/* Glum                                                                      */
+/* ========================================================================= */
+
+.glum-pile {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    padding: 0.3rem 0;
+}
+
+.glum-card-display {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 2.5rem;
+    min-height: 3.2rem;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    background: rgba(255, 255, 255, 0.92);
+    font-size: 1.1rem;
+    font-weight: 700;
+    padding: 0.3rem 0.4rem;
+}
+
+.glum-red {
+    color: #c62828;
+}
+
+.glum-black {
+    color: #222;
+}
+
+.glum-hand {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    padding: 0.5rem 0;
+}
+
+.glum-card {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 2.8rem;
+    min-height: 3.6rem;
+    border-radius: 10px;
+    border: 2px solid transparent;
+    background: rgba(255, 255, 255, 0.9);
+    font-size: 1.1rem;
+    font-weight: 700;
+    padding: 0.3rem 0.4rem;
+    cursor: pointer;
+    transition: transform 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.glum-card:hover:not(:disabled) {
+    transform: translateY(-2px);
+}
+
+.glum-card.glum-card-selected {
+    border-color: rgba(252, 181, 105, 0.9);
+    box-shadow: 0 0 8px rgba(252, 181, 105, 0.45);
+    transform: translateY(-4px);
+    background: rgba(252, 240, 220, 0.95);
+}
+
+.glum-card:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
 @media (max-width: 960px) {
     .pane-grid.split {
         grid-template-columns: 1fr;
