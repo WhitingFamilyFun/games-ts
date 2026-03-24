@@ -263,7 +263,7 @@ function AppPane({ paneId, title, firebaseUser }: { paneId: string; title: strin
             gameType,
             adminID: session.playerId as PlayerId,
             rounds: 1,
-            minPlayers: 2,
+            minPlayers: gameType === 'Flixx' ? 1 : 2,
             maxPlayers: 20,
             options: { randomSeed: 7 },
         };
