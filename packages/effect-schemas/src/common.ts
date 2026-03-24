@@ -6,7 +6,7 @@ export type PlayerId = typeof PlayerId.Type
 export const GameCode = Schema.String.pipe(Schema.brand("GameCode"))
 export type GameCode = typeof GameCode.Type
 
-export const GameType = Schema.Literal("Flylo", "Flixx", "Fireworks")
+export const GameType = Schema.Literal("Flylo", "Flixx", "Fireworks", "Glum")
 export type GameType = typeof GameType.Type
 
 export const Player = Schema.Struct({

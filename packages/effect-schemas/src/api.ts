@@ -3,13 +3,14 @@ import { PlayerId, GameCode, Player, GameConfig, GameStatus } from "./common.js"
 import { FlyloGame, FlyloEvent } from "./flylo.js"
 import { FlixxGame, FlixxEvent } from "./flixx.js"
 import { FireworksGame, FireworksEvent } from "./fireworks.js"
+import { GlumGame, GlumEvent } from "./glum.js"
 
-// Discriminated on `type` field ("Flylo" | "Flixx" | "Fireworks")
+// Discriminated on `type` field ("Flylo" | "Flixx" | "Fireworks" | "Glum")
 // All branches have GenericFields, so state.status, state.round, etc. always work
-export const GameState = Schema.Union(FlyloGame, FlixxGame, FireworksGame)
+export const GameState = Schema.Union(FlyloGame, FlixxGame, FireworksGame, GlumGame)
 export type GameState = typeof GameState.Type
 
-export const GameEvent = Schema.Union(FlyloEvent, FlixxEvent, FireworksEvent)
+export const GameEvent = Schema.Union(FlyloEvent, FlixxEvent, FireworksEvent, GlumEvent)
 export type GameEvent = typeof GameEvent.Type
 
 export const Lobby = Schema.Struct({
